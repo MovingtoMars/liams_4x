@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 
-use crate::common::map_position::*;
+use crate::common::*;
 
 pub type MapUnit = i16;
 
@@ -12,12 +12,15 @@ pub struct UnitId(u16);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameActionType {
     MoveUnit { unit_id: UnitId, position: MapPosition },
+    FoundCity { unit_id: UnitId }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameEventType {
-    MoveUnit { unit_id: UnitId, position: MapPosition, remaining_movement: MapUnit },
     NextTurn,
+    MoveUnit { unit_id: UnitId, position: MapPosition, remaining_movement: MapUnit },
+    DeleteUnit { unit_id: UnitId },
+    FoundCity { position: MapPosition }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -162,6 +165,12 @@ impl Unit {
     pub fn remaining_movement(&self) -> MapUnit {
         self.remaining_movement
     }
+
+    // Returns if the unit has the ability to settle. Note that this does not mean the unit can
+    // settle right now, eg. may be on invalid tile or not enough movement.
+    pub fn has_settle_ability(&self) -> bool {
+        self.unit_type == UnitType::Civilian
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -202,6 +211,8 @@ pub struct GameWorld {
     next_city_id: u16,
 
     turn: u16,
+
+    city_name_generator: CityNameGenerator,
 }
 
 impl GameWorld {
@@ -213,6 +224,7 @@ impl GameWorld {
             next_unit_id: 0,
             next_city_id: 0,
             turn: 1,
+            city_name_generator: CityNameGenerator::new(),
         }
     }
 
@@ -251,13 +263,13 @@ impl GameWorld {
         self.cities.get(&city_id)
     }
 
-    pub fn new_city(&mut self, position: MapPosition, name: String) -> &mut City {
+    pub fn new_city(&mut self, position: MapPosition) -> &mut City {
         assert!(self.map.tile(position).city.is_none());
 
         let id = self.next_city_id();
         let mut city = City {
             position,
-            name,
+            name: self.city_name_generator.next(),
             id,
         };
 
@@ -311,22 +323,34 @@ impl GameWorld {
 
         match action_type {
             GameActionType::MoveUnit { unit_id, position } => {
-                if let Some(unit) = self.unit(*unit_id) {
-                    let target_tile_unoccupied = !self.map.tile(*position).units.contains_key(&unit.unit_type);
-                    let target_tile_moveable = self.map.tile(*position).units_can_reside();
-                    let neighbor_map = unit.position().neighbors_at_distance(self.map.width, self.map.height, unit.remaining_movement(), true);
-                    let distance = neighbor_map.get(position);
-                    let target_tile_in_range = distance.is_some();
+                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return Vec::new() };
 
-                    if target_tile_unoccupied && target_tile_moveable && target_tile_in_range {
-                        let event = GameEventType::MoveUnit {
-                            unit_id: *unit_id,
-                            position: *position,
-                            remaining_movement: unit.remaining_movement() - distance.unwrap(),
-                        };
-                        self.apply_event(&event);
-                        result.push(event);
-                    }
+                let target_tile_unoccupied = !self.map.tile(*position).units.contains_key(&unit.unit_type);
+                let target_tile_moveable = self.map.tile(*position).units_can_reside();
+                let neighbor_map = unit.position().neighbors_at_distance(self.map.width, self.map.height, unit.remaining_movement(), true);
+                let distance = neighbor_map.get(position);
+                let target_tile_in_range = distance.is_some();
+
+                if target_tile_unoccupied && target_tile_moveable && target_tile_in_range {
+                    let event = GameEventType::MoveUnit {
+                        unit_id: *unit_id,
+                        position: *position,
+                        remaining_movement: unit.remaining_movement() - distance.unwrap(),
+                    };
+                    self.apply_event(&event);
+                    result.push(event);
+                }
+            }
+            GameActionType::FoundCity { unit_id } => {
+                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return Vec::new() };
+                let city_exists_on_tile = self.map.tile(unit.position()).city.is_some();
+                if unit.has_settle_ability() && unit.remaining_movement() >= 1 && !city_exists_on_tile {
+                    let events = vec![
+                        GameEventType::DeleteUnit { unit_id: *unit_id },
+                        GameEventType::FoundCity { position: unit.position() },
+                    ];
+                    self.apply_events(&events);
+                    return events;
                 }
             }
         }
@@ -336,15 +360,34 @@ impl GameWorld {
 
     pub fn apply_event(&mut self, event_type: &GameEventType) {
         match event_type {
-            GameEventType::MoveUnit { unit_id, position, remaining_movement } => {
-                self.set_unit_position(*unit_id, *position);
-                self.units.get_mut(unit_id).unwrap().remaining_movement = *remaining_movement;
-            }
             GameEventType::NextTurn => {
                 self.turn += 1;
                 self.on_turn_start();
             }
+            GameEventType::MoveUnit { unit_id, position, remaining_movement } => {
+                self.set_unit_position(*unit_id, *position);
+                self.units.get_mut(unit_id).unwrap().remaining_movement = *remaining_movement;
+            }
+            GameEventType::DeleteUnit { unit_id } => {
+                self.delete_unit(*unit_id);
+            }
+            GameEventType::FoundCity { position } => {
+                self.new_city(*position);
+            }
         }
+    }
+
+    pub fn apply_events(&mut self, events: &[GameEventType]) {
+        for event in events {
+            self.apply_event(event);
+        }
+    }
+
+    fn delete_unit(&mut self, unit_id: UnitId) {
+        let unit = self.units.get_mut(&unit_id).unwrap();
+        let position = unit.position();
+        self.map.tile_mut(position).units.remove(&unit.unit_type);
+        self.units.remove(&unit_id);
     }
 
     fn on_turn_start(&mut self) {
@@ -383,7 +426,8 @@ pub fn generate_game_world(width: MapUnit, height: MapUnit) -> GameWorld {
                 (2, 2) |
                 (2, 3) |
                 (3, 3) |
-                (4, 4) => TileType::Plains,
+                (4, 4) |
+                (7, 6) => TileType::Plains,
                 _ => {
                     if rand::random::<f32>() > 0.85 {
                         TileType::Mountain
@@ -411,7 +455,11 @@ pub fn generate_game_world(width: MapUnit, height: MapUnit) -> GameWorld {
             }
 
             if let (4, 4) = (x, y) {
-                game.new_city(position, "Auckland".into());
+                game.new_city(position);
+            }
+
+            if let (7, 6) = (x, y) {
+                game.new_city(position);
             }
         }
     }

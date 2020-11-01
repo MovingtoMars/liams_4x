@@ -150,6 +150,16 @@ impl MainState {
                 let object = ObjectType::Unit(unit_id);
                 self.hitboxes.get_mut(&object).unwrap().set_tile_pos(position);
             }
+            GameEventType::DeleteUnit { unit_id } => {
+                let object = ObjectType::Unit(unit_id);
+                self.hitboxes.remove(&object);
+                if self.selected == Some(object) {
+                    self.selected = None;
+                }
+            }
+            GameEventType::FoundCity { position } => {
+                self.selected = Some(ObjectType::City(self.world.map.tile(position).city.unwrap()));
+            }
             _ => {}
         }
     }
@@ -279,29 +289,46 @@ impl EventHandler for MainState {
                     });
 
                 if let Some(selected) = selected {
+                    const SIDEBAR_WIDTH: f32 = 350.0;
+                    let sidebar_button_size: [f32; 2] = [SIDEBAR_WIDTH - ui.clone_style().window_padding[0] * 2.0, 40.0];
                     imgui::Window::new(im_str!("Selection"))
-                      .size([400.0, screen_height], imgui::Condition::Always)
-                      .position([screen_width - 400.0, 0.0], imgui::Condition::Always)
-                      .collapsible(false)
-                      .movable(false)
-                      .resizable(false)
-                      .build(ui, || {
-                          match selected {
-                              ObjectType::Tile(pos) => {
-                                  let tile_type = world.map.tile(*pos).tile_type;
-                                  ui.text(format!("{} tile at {}", tile_type, pos));
-                              },
-                              ObjectType::Unit(unit_id) => {
-                                  let unit = world.unit(*unit_id).unwrap();
-                                  ui.text(format!("{} at {}", unit.unit_type(), unit.position()));
-                                  ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
-                              }
-                              ObjectType::City(city_id) => {
-                                  let city = world.city(*city_id).unwrap();
-                                  ui.text(format!("City: {} at {}", city.name(), city.position()));
-                              }
-                          }
-                      });
+                        .size([SIDEBAR_WIDTH, screen_height], imgui::Condition::Always)
+                        .position([screen_width - SIDEBAR_WIDTH, 0.0], imgui::Condition::Always)
+                        .collapsible(false)
+                        .movable(false)
+                        .resizable(false)
+                        .build(ui, || {
+                            match selected {
+                                ObjectType::Tile(pos) => {
+                                    let tile_type = world.map.tile(*pos).tile_type;
+                                    ui.text(format!("{} tile at {}", tile_type, pos));
+                                },
+                                ObjectType::Unit(unit_id) => {
+                                    let unit = world.unit(*unit_id).unwrap();
+                                    ui.text(format!("{} at {}", unit.unit_type(), unit.position()));
+                                    ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
+                                    ui.spacing();
+                                    ui.spacing();
+                                    ui.separator();
+                                    ui.spacing();
+                                    ui.spacing();
+                                    ui.spacing();
+
+                                    if unit.has_settle_ability() {
+                                        // TODO disable button when can't settle
+                                        let founding_city = ui.button(im_str!("Found city"), sidebar_button_size);
+                                        if founding_city {
+                                            let action = GameActionType::FoundCity { unit_id: *unit_id };
+                                            connection.send_message(MessageToServer { message_type: MessageToServerType::Action(action) });
+                                        }
+                                    }
+                                }
+                                ObjectType::City(city_id) => {
+                                    let city = world.city(*city_id).unwrap();
+                                    ui.text(format!("City: {} at {}", city.name(), city.position()));
+                                }
+                            }
+                        });
                 }
 
 

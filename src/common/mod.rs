@@ -1,5 +1,6 @@
 mod game_map;
 mod map_position;
+mod city_names;
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -14,6 +15,7 @@ use laminar::*;
 
 pub use game_map::*;
 pub use map_position::*;
+pub use city_names::*;
 
 pub const SERVER: &str = "127.0.0.1:12351";
 pub const CLIENT: &str = "127.0.0.1:12352";
@@ -37,6 +39,7 @@ pub enum MessageToServerType {
     Goodbye,
 }
 
+// Does this type add any value?
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageToServer {
     pub message_type: MessageToServerType,
