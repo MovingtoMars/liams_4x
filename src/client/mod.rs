@@ -165,7 +165,7 @@ impl EventHandler for MainState {
 
         // TODO sleep enough to limit to 60 UPS
         // Possibly less? Could do with like 20
-        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::thread::yield_now();
 
         Ok(())
     }
@@ -248,7 +248,16 @@ impl EventHandler for MainState {
 
             let MainState { world, selected, ref offset, connection, .. } = self;
 
+            let fps = ggez::timer::fps(ctx);
+
             let func = |ui: &imgui::Ui| {
+                imgui::Window::new(im_str!("Developer"))
+                    .position([0.0, 0.0], imgui::Condition::Once)
+                    .always_auto_resize(true)
+                    .build(ui, || {
+                        ui.text(format!("FPS: {:.2}", fps));
+                    });
+
                 const TURN_WINDOW_HEIGHT: f32 = 80.0;
                 const TURN_WINDOW_WIDTH: f32 = 200.0;
                 imgui::Window::new(im_str!("Turn"))
@@ -266,7 +275,6 @@ impl EventHandler for MainState {
                     });
 
                 if let Some(selected) = selected {
-
                     imgui::Window::new(im_str!("Selection"))
                       .size([400.0, screen_height], imgui::Condition::Always)
                       .position([screen_width - 400.0, 0.0], imgui::Condition::Always)

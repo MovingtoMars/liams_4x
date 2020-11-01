@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["confusedcyborg"]
 edition = "2018"
 
+[profile.dev]
+opt-level = 1
+
 [dependencies]
 ggez = "0.5.1"
 
