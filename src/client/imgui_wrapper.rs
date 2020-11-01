@@ -12,6 +12,9 @@ use imgui_gfx_renderer::*;
 
 use std::time::Instant;
 
+// TODO integrate with system clipboard
+// TODO go through https://github.com/ocornut/imgui/blob/master/docs/FAQ.md and add stuff we should have
+
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
   pos: (i32, i32),

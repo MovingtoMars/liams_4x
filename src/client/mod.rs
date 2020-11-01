@@ -3,7 +3,7 @@ mod utils;
 mod constants;
 mod drag;
 mod hitbox;
-mod object;
+mod selected_object;
 
 use std::collections::HashMap;
 
@@ -15,6 +15,7 @@ use ggez::graphics::{self, Image};
 use ggez::mint;
 use ggez::{Context, GameResult};
 
+use imgui::ImString;
 use imgui_wrapper::ImGuiWrapper;
 
 use ncollide2d::math::Translation;
@@ -26,8 +27,8 @@ use self::imgui_wrapper::ImGuiFonts;
 use self::utils::get_tile_window_pos;
 
 use drag::Drag;
-use object::ObjectType;
-use hitbox::{Hitbox, get_hovered_object};
+use selected_object::SelectedObject;
+use hitbox::{Hitbox, HitboxKey, get_hovered_object};
 
 const SPRITE_TILE_BLANK: usize = 0;
 const SPRITE_TILE_PLAINS: usize = 1;
@@ -59,9 +60,9 @@ struct MainState {
     world: GameWorld,
     offset: Translation<f32>,
     current_drag: Option<Drag>,
-    selected: Option<ObjectType>,
+    selected: Option<SelectedObject>,
     // TODO turn this into a ncollide world
-    hitboxes: HashMap<ObjectType, Hitbox>,
+    hitboxes: HashMap<HitboxKey, Hitbox>,
     connection: Connection<MessageToServer, MessageToClient>,
 }
 
@@ -79,7 +80,7 @@ impl MainState {
         let mut hitboxes = HashMap::new();
         for tile in world.map.tiles() {
             hitboxes.insert(
-                ObjectType::Tile(tile.position),
+                HitboxKey::Tile(tile.position),
                 Hitbox::tile(get_tile_window_pos(tile.position)),
             );
         }
@@ -90,7 +91,7 @@ impl MainState {
                 UnitType::Soldier => Hitbox::soldier(window_pos),
             };
             hitboxes.insert(
-                ObjectType::Unit(unit.id()),
+                HitboxKey::Unit(unit.id()),
                 hitbox,
             );
         }
@@ -147,18 +148,22 @@ impl MainState {
 
         match *event {
             GameEventType::MoveUnit { unit_id, position, .. } => {
-                let object = ObjectType::Unit(unit_id);
-                self.hitboxes.get_mut(&object).unwrap().set_tile_pos(position);
+                let key = HitboxKey::Unit(unit_id);
+                self.hitboxes.get_mut(&key).unwrap().set_tile_pos(position);
             }
             GameEventType::DeleteUnit { unit_id } => {
-                let object = ObjectType::Unit(unit_id);
-                self.hitboxes.remove(&object);
-                if self.selected == Some(object) {
-                    self.selected = None;
+                let key = HitboxKey::Unit(unit_id);
+                self.hitboxes.remove(&key);
+                if let Some(SelectedObject::Unit(selected_unit_id)) = self.selected {
+                    if selected_unit_id == unit_id {
+                        self.selected = None;
+                    }
                 }
             }
             GameEventType::FoundCity { position } => {
-                self.selected = Some(ObjectType::City(self.world.map.tile(position).city.unwrap()));
+                let city_id = self.world.map.tile(position).city.unwrap();
+                let city_name = self.world.city(city_id).unwrap().name();
+                self.selected = Some(SelectedObject::City(city_id, ImString::new(city_name)));
             }
             _ => {}
         }
@@ -208,17 +213,17 @@ impl EventHandler for MainState {
                 self.draw_tile_sprite(ctx, unit.position(), sprite_index, color);
             }
 
-            if let Some(selected) = self.selected {
+            if let Some(ref selected) = self.selected {
                 match selected {
-                    ObjectType::Tile(pos) => {
+                    SelectedObject::Tile(pos) => {
+                        self.draw_tile_sprite(ctx, *pos, SPRITE_TILE_HIGHLIGHT, None);
+                    }
+                    SelectedObject::City(city_id, _) => {
+                        let pos = self.world.city(*city_id).unwrap().position();
                         self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT, None);
                     }
-                    ObjectType::City(city_id) => {
-                        let pos = self.world.city(city_id).unwrap().position();
-                        self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT, None);
-                    }
-                    ObjectType::Unit(unit_id) => {
-                        let unit = self.world.unit(unit_id).unwrap();
+                    SelectedObject::Unit(unit_id) => {
+                        let unit = self.world.unit(*unit_id).unwrap();
                         let position = unit.position();
                         let sprite_index = match unit.unit_type() {
                             UnitType::Civilian => SPRITE_CIVILIAN_HIGHLIGHT,
@@ -245,7 +250,6 @@ impl EventHandler for MainState {
                                 self.draw_tile_sprite(ctx, neighbor, sprite_index, None);
                             }
                         }
-
                     }
                 }
             }
@@ -261,6 +265,7 @@ impl EventHandler for MainState {
 
             let fps = ggez::timer::fps(ctx);
 
+            //  TODO use ui.current_font_size() to size buttons, etc
             let func = |ui: &imgui::Ui, fonts: &ImGuiFonts| {
                 imgui::Window::new(im_str!("Developer"))
                     .position([0.0, 0.0], imgui::Condition::Once)
@@ -299,11 +304,11 @@ impl EventHandler for MainState {
                         .resizable(false)
                         .build(ui, || {
                             match selected {
-                                ObjectType::Tile(pos) => {
+                                SelectedObject::Tile(pos) => {
                                     let tile_type = world.map.tile(*pos).tile_type;
                                     ui.text(format!("{} tile at {}", tile_type, pos));
                                 },
-                                ObjectType::Unit(unit_id) => {
+                                SelectedObject::Unit(unit_id) => {
                                     let unit = world.unit(*unit_id).unwrap();
                                     ui.text(format!("{} at {}", unit.unit_type(), unit.position()));
                                     ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
@@ -323,9 +328,21 @@ impl EventHandler for MainState {
                                         }
                                     }
                                 }
-                                ObjectType::City(city_id) => {
+                                SelectedObject::City(city_id, ref mut city_name_buf) => {
                                     let city = world.city(*city_id).unwrap();
-                                    ui.text(format!("City: {} at {}", city.name(), city.position()));
+                                    // TODO name length limit?
+                                    let city_name_changed = ui.input_text(im_str!(""), city_name_buf)
+                                        .resize_buffer(true)
+                                        // If the user holds down a key, it can send quite a lot of data.
+                                        // Perhaps debounce, or set this to false.
+                                        .enter_returns_true(false)
+                                        .build();
+                                    ui.text(format!("City at {}", city.position()));
+
+                                    if city_name_changed {
+                                        let action = GameActionType::RenameCity { city_id: *city_id, name: city_name_buf.to_string() };
+                                        connection.send_message(MessageToServer { message_type: MessageToServerType::Action(action) });
+                                    }
                                 }
                             }
                         });
@@ -347,7 +364,7 @@ impl EventHandler for MainState {
                         .build(ui, || {
                             let clicked = ui.button(&ImString::new(city.name()), [width, 40.0]);
                             if clicked {
-                                *selected = Some(ObjectType::City(city.id()));
+                                *selected = Some(SelectedObject::City(city.id(), ImString::new(city.name())));
                             }
                         });
                 }
@@ -415,10 +432,13 @@ impl EventHandler for MainState {
             }
 
             // A mouse click on the map occurred
-            self.selected = hovered;
+            self.selected = hovered.map(|hovered| match hovered {
+                HitboxKey::Tile(position) => SelectedObject::Tile(position),
+                HitboxKey::Unit(unit_id) => SelectedObject::Unit(unit_id),
+            });
         } else if let MouseButton::Right = button {
-            if let Some(ObjectType::Unit(unit_id)) = self.selected {
-                if let Some(ObjectType::Tile(pos)) = hovered {
+            if let Some(SelectedObject::Unit(unit_id)) = self.selected {
+                if let Some(HitboxKey::Tile(pos)) = hovered {
                     let action = GameActionType::MoveUnit { unit_id, position: pos };
                     self.send_action(action);
                 }
@@ -446,7 +466,7 @@ impl EventHandler for MainState {
         }
 
 
-        if [KeyCode::Q, KeyCode::Escape].contains(&keycode) {
+        if [KeyCode::Escape].contains(&keycode) {
             self.close_connection();
             ctx.continuing = false;
         }

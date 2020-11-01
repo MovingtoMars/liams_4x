@@ -12,7 +12,8 @@ pub struct UnitId(u16);
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameActionType {
     MoveUnit { unit_id: UnitId, position: MapPosition },
-    FoundCity { unit_id: UnitId }
+    FoundCity { unit_id: UnitId },
+    RenameCity { city_id: CityId, name: String },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -20,7 +21,8 @@ pub enum GameEventType {
     NextTurn,
     MoveUnit { unit_id: UnitId, position: MapPosition, remaining_movement: MapUnit },
     DeleteUnit { unit_id: UnitId },
-    FoundCity { position: MapPosition }
+    FoundCity { position: MapPosition },
+    RenameCity { city_id: CityId, name: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -353,6 +355,13 @@ impl GameWorld {
                     return events;
                 }
             }
+            GameActionType::RenameCity { city_id, name } => {
+                return if self.city(*city_id).is_some() {
+                    vec![GameEventType::RenameCity { city_id: *city_id, name: name.clone() }]
+                } else {
+                    vec![]
+                }
+            }
         }
 
         result
@@ -373,6 +382,9 @@ impl GameWorld {
             }
             GameEventType::FoundCity { position } => {
                 self.new_city(*position);
+            }
+            GameEventType::RenameCity { city_id, name } => {
+                self.cities.get_mut(city_id).unwrap().name = name.clone();
             }
         }
     }

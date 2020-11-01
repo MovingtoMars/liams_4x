@@ -6,9 +6,8 @@ use ncollide2d::query::PointQuery;
 
 use crate::client::constants::*;
 use crate::common::MapPosition;
-
-use super::object::ObjectType;
-use super::utils::get_tile_window_pos;
+use crate::common::UnitId;
+use crate::client::utils::get_tile_window_pos;
 
 pub struct Hitbox {
     pub shape: Box<dyn Shape<f32>>,
@@ -76,30 +75,36 @@ impl Hitbox {
     }
 }
 
+#[derive(Clone, Debug, Copy, Hash, PartialEq, Eq)]
+pub enum HitboxKey {
+    Tile(MapPosition),
+    Unit(UnitId),
+}
+
 pub fn get_hovered_object<'a>(
     mouse_window_x: f32,
     mouse_window_y: f32,
     map_offset: &Translation<f32>,
-    hitboxes: &HashMap<ObjectType, Hitbox>,
-) -> Option<ObjectType> {
+    hitboxes: &HashMap<HitboxKey, Hitbox>,
+) -> Option<HitboxKey> {
     let point = map_offset.inverse() * Point::new(mouse_window_x, mouse_window_y);
 
-    let mut result: Option<(ObjectType, f32)> = None;
+    let mut result: Option<(HitboxKey, f32)> = None;
 
-    for (&object, hitbox) in hitboxes {
+    for (&key, hitbox) in hitboxes {
         if hitbox.shape.contains_point(&hitbox.isometry, &point) {
             match result {
                 Option::Some((_, earlier_z)) => {
                     if hitbox.z > earlier_z  {
-                        result = Some((object, hitbox.z));
+                        result = Some((key, hitbox.z));
                     }
                 }
                 Option::None => {
-                    result = Some((object, hitbox.z));
+                    result = Some((key, hitbox.z));
                 }
             }
         }
     }
 
-    result.map(|(object, _)| object)
+    result.map(|(key, _)| key)
 }
