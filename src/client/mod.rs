@@ -39,6 +39,10 @@ const SPRITE_SOLDIER: usize = 6;
 const SPRITE_CIVILIAN_HIGHLIGHT: usize = 7;
 const SPRITE_SOLDIER_HIGHLIGHT: usize = 8;
 
+const SPRITE_TILE_HIGHLIGHT_BLUE_1: usize = 10;
+const SPRITE_TILE_HIGHLIGHT_BLUE_2: usize = 11;
+const SPRITE_TILE_HIGHLIGHT_BLUE_3: usize = 12;
+
 
 fn get_tile_image_src_rect(index: usize) -> Rect {
     let x = (index as f32) * 0.2 % 1.0;
@@ -112,15 +116,19 @@ impl MainState {
             TileType::Mountain => SPRITE_TILE_MOUNTAIN,
         };
 
-        self.draw_tile_sprite(ctx, tile.position, sprite_index);
+        self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
     }
 
-    fn draw_tile_sprite(&self, ctx: &mut Context, pos: MapPosition, sprite_index: usize) {
+    fn draw_tile_sprite(&self, ctx: &mut Context, pos: MapPosition, sprite_index: usize, color: Option<graphics::Color>) {
         let dest_point = self.offset * get_tile_window_pos(pos);
 
-        let params = DrawParam::default()
+        let mut params = DrawParam::default()
             .src(get_tile_image_src_rect(sprite_index))
             .dest(mint::Point2 { x: dest_point.x, y: dest_point.y });
+
+        if let Some(color) = color {
+            params = params.color(color);
+        }
 
         graphics::draw(ctx, &self.tile_sprites, params).unwrap();
     }
@@ -137,7 +145,7 @@ impl MainState {
         self.world.apply_event(&event);
 
         match *event {
-            GameEventType::MoveUnit { unit_id, position } => {
+            GameEventType::MoveUnit { unit_id, position, .. } => {
                 let object = ObjectType::Unit(unit_id);
                 self.hitboxes.get_mut(&object).unwrap().set_tile_pos(position);
             }
@@ -181,26 +189,52 @@ impl EventHandler for MainState {
                     UnitType::Civilian => SPRITE_CIVILIAN,
                     UnitType::Soldier => SPRITE_SOLDIER,
                 };
-                self.draw_tile_sprite(ctx, unit.position(), sprite_index);
+                let color = if unit.remaining_movement() > 0 {
+                    None
+                } else {
+                    Some(graphics::Color::new(0.7, 0.7, 0.7, 0.9))
+                };
+                self.draw_tile_sprite(ctx, unit.position(), sprite_index, color);
             }
 
             if let Some(selected) = self.selected {
                 match selected {
                     ObjectType::Tile(pos) => {
-                        self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT);
+                        self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT, None);
                     }
                     ObjectType::City(city_id) => {
                         let pos = self.world.city(city_id).unwrap().position();
-                        self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT);
+                        self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT, None);
                     }
                     ObjectType::Unit(unit_id) => {
                         let unit = self.world.unit(unit_id).unwrap();
+                        let position = unit.position();
                         let sprite_index = match unit.unit_type() {
                             UnitType::Civilian => SPRITE_CIVILIAN_HIGHLIGHT,
                             UnitType::Soldier => SPRITE_SOLDIER_HIGHLIGHT,
                         };
 
-                        self.draw_tile_sprite(ctx, unit.position(), sprite_index)
+                        self.draw_tile_sprite(ctx, position, sprite_index, None);
+
+                        if ggez::input::mouse::button_pressed(ctx, MouseButton::Right) {
+                            let neighbor_map = position.neighbors_at_distance(
+                                self.world.map.width(),
+                                self.world.map.height(),
+                                unit.remaining_movement(),
+                                true,
+                            );
+
+                            for (neighbor, distance) in neighbor_map {
+                                let sprite_index = match distance {
+                                    0 => continue,
+                                    1 => SPRITE_TILE_HIGHLIGHT_BLUE_1,
+                                    2 => SPRITE_TILE_HIGHLIGHT_BLUE_2,
+                                    _ => SPRITE_TILE_HIGHLIGHT_BLUE_3,
+                                };
+                                self.draw_tile_sprite(ctx, neighbor, sprite_index, None);
+                            }
+                        }
+
                     }
                 }
             }
@@ -232,20 +266,6 @@ impl EventHandler for MainState {
                     });
 
                 if let Some(selected) = selected {
-                    let text = match selected {
-                        ObjectType::Tile(pos) => {
-                            let tile_type = world.map.tile(*pos).tile_type;
-                            format!("{} tile at {}", tile_type, pos)
-                        },
-                        ObjectType::Unit(unit_id) => {
-                            let unit = world.unit(*unit_id).unwrap();
-                            format!("{} at {}", unit.unit_type(), unit.position())
-                        }
-                        ObjectType::City(city_id) => {
-                            let city = world.city(*city_id).unwrap();
-                            format!("City: {} at {}", city.name(), city.position())
-                        }
-                    };
 
                     imgui::Window::new(im_str!("Selection"))
                       .size([400.0, screen_height], imgui::Condition::Always)
@@ -254,7 +274,21 @@ impl EventHandler for MainState {
                       .movable(false)
                       .resizable(false)
                       .build(ui, || {
-                        ui.text(text);
+                          match selected {
+                              ObjectType::Tile(pos) => {
+                                  let tile_type = world.map.tile(*pos).tile_type;
+                                  ui.text(format!("{} tile at {}", tile_type, pos));
+                              },
+                              ObjectType::Unit(unit_id) => {
+                                  let unit = world.unit(*unit_id).unwrap();
+                                  ui.text(format!("{} at {}", unit.unit_type(), unit.position()));
+                                  ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
+                              }
+                              ObjectType::City(city_id) => {
+                                  let city = world.city(*city_id).unwrap();
+                                  ui.text(format!("City: {} at {}", city.name(), city.position()));
+                              }
+                          }
                       });
                 }
 

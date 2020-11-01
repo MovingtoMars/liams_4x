@@ -53,10 +53,10 @@ impl ImGuiWrapper {
     };
 
     // Renderer
-    let mut renderer = Renderer::init(&mut imgui, &mut *factory, shaders).unwrap();
+    let renderer = Renderer::init(&mut imgui, &mut *factory, shaders).unwrap();
 
     {
-      let mut io = imgui.io_mut();
+      let io = imgui.io_mut();
       io[Key::Tab] = KeyCode::Tab as _;
       io[Key::LeftArrow] = KeyCode::Left as _;
       io[Key::RightArrow] = KeyCode::Right as _;

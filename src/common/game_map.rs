@@ -2,71 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 
-pub type MapUnit = u16;
+use crate::common::map_position::*;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct MapPosition {
-    pub x: MapUnit,
-    pub y: MapUnit,
-}
-
-impl std::fmt::Display for MapPosition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("({}, {})", self.x, self.y))
-    }
-}
-
-impl MapPosition {
-    pub fn top(self) -> Self {
-        let Self { x, y } = self;
-        Self { x, y: y + 1 }
-    }
-
-    pub fn bottom(self) -> Self {
-        let Self { x, y } = self;
-        Self { x, y: y - 1 }
-    }
-
-    pub fn top_left(self) -> Self {
-        let Self { x, y } = self;
-
-        if y % 2 == 0 {
-            Self { x: x - 1, y: y }
-        } else {
-            Self { x: x - 1, y: y + 1 }
-        }
-    }
-
-    pub fn bottom_left(self) -> Self {
-        let Self { x, y } = self;
-
-        if y % 2 == 0 {
-            Self { x: x - 1, y: y - 1 }
-        } else {
-            Self { x: x - 1, y: y }
-        }
-    }
-
-    pub fn top_right(self) -> Self {
-        let Self { x, y } = self;
-
-        if y % 2 == 0 {
-            Self { x: x + 1, y: y }
-        } else {
-            Self { x: x + 1, y: y + 1 }
-        }
-    }
-
-    pub fn bottom_right(self) -> Self {
-        let Self { x, y } = self;
-
-        if y % 2 == 0 {
-            Self { x: x + 1, y: y - 1 }
-        } else {
-            Self { x: x + 1, y: y }
-        }
-    }
-}
+pub type MapUnit = i16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UnitId(u16);
@@ -78,8 +16,8 @@ pub enum GameActionType {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameEventType {
-    MoveUnit { unit_id: UnitId, position: MapPosition },
-    SetTurn(u16),
+    MoveUnit { unit_id: UnitId, position: MapPosition, remaining_movement: MapUnit },
+    NextTurn,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -197,6 +135,7 @@ pub struct Unit {
     unit_type: UnitType,
     position: MapPosition,
     id: UnitId,
+    remaining_movement: MapUnit,
 }
 
 impl Unit {
@@ -210,6 +149,18 @@ impl Unit {
 
     pub fn id(&self) -> UnitId {
         self.id
+    }
+
+    fn on_turn_start(&mut self) {
+        self.remaining_movement = self.total_movement();
+    }
+
+    pub fn total_movement(&self) -> MapUnit {
+        2
+    }
+
+    pub fn remaining_movement(&self) -> MapUnit {
+        self.remaining_movement
     }
 }
 
@@ -234,6 +185,10 @@ impl City {
 
     pub fn id(&self) -> CityId {
         self.id
+    }
+
+    fn on_turn_start(&mut self) {
+
     }
 }
 
@@ -266,7 +221,8 @@ impl GameWorld {
     }
 
     pub fn next_turn(&mut self) -> Vec<GameEventType> {
-        vec![GameEventType::SetTurn(self.turn + 1)]
+        self.apply_event(&GameEventType::NextTurn);
+        vec![GameEventType::NextTurn]
     }
 
     fn next_unit_id(&mut self) -> UnitId {
@@ -299,11 +255,13 @@ impl GameWorld {
         assert!(self.map.tile(position).city.is_none());
 
         let id = self.next_city_id();
-        let city = City {
+        let mut city = City {
             position,
             name,
             id,
         };
+
+        city.on_turn_start();
 
         self.map.tile_mut(position).city = Some(id);
         self.cities.insert(id, city);
@@ -314,11 +272,14 @@ impl GameWorld {
         assert!(!self.map.tile(position).units.contains_key(&UnitType::Civilian));
 
         let id = self.next_unit_id();
-        let unit = Unit {
+        let mut unit = Unit {
             unit_type: UnitType::Civilian,
             id,
-            position
+            position,
+            remaining_movement: 0,
         };
+
+        unit.on_turn_start();
 
         self.map.tile_mut(position).units.insert(UnitType::Civilian, id);
 
@@ -330,11 +291,14 @@ impl GameWorld {
         assert!(!self.map.tile(position).units.contains_key(&UnitType::Soldier));
 
         let id = self.next_unit_id();
-        let unit = Unit {
+        let mut unit = Unit {
             unit_type: UnitType::Soldier,
             id,
-            position
+            position,
+            remaining_movement: 0,
         };
+
+        unit.on_turn_start();
 
         self.map.tile_mut(position).units.insert(UnitType::Soldier, id);
 
@@ -342,15 +306,26 @@ impl GameWorld {
         self.units.get_mut(&id).unwrap()
     }
 
-    pub fn process_action(&self, action_type: &GameActionType) -> Vec<GameEventType> {
+    pub fn process_action(&mut self, action_type: &GameActionType) -> Vec<GameEventType> {
         let mut result = Vec::new();
 
         match action_type {
             GameActionType::MoveUnit { unit_id, position } => {
                 if let Some(unit) = self.unit(*unit_id) {
-                    if !self.map.tile(*position).units.contains_key(&unit.unit_type)
-                            && self.map.tile(*position).units_can_reside() {
-                        result.push(GameEventType::MoveUnit { unit_id: *unit_id, position: *position });
+                    let target_tile_unoccupied = !self.map.tile(*position).units.contains_key(&unit.unit_type);
+                    let target_tile_moveable = self.map.tile(*position).units_can_reside();
+                    let neighbor_map = unit.position().neighbors_at_distance(self.map.width, self.map.height, unit.remaining_movement(), true);
+                    let distance = neighbor_map.get(position);
+                    let target_tile_in_range = distance.is_some();
+
+                    if target_tile_unoccupied && target_tile_moveable && target_tile_in_range {
+                        let event = GameEventType::MoveUnit {
+                            unit_id: *unit_id,
+                            position: *position,
+                            remaining_movement: unit.remaining_movement() - distance.unwrap(),
+                        };
+                        self.apply_event(&event);
+                        result.push(event);
                     }
                 }
             }
@@ -361,12 +336,24 @@ impl GameWorld {
 
     pub fn apply_event(&mut self, event_type: &GameEventType) {
         match event_type {
-            GameEventType::MoveUnit { unit_id, position } => {
+            GameEventType::MoveUnit { unit_id, position, remaining_movement } => {
                 self.set_unit_position(*unit_id, *position);
+                self.units.get_mut(unit_id).unwrap().remaining_movement = *remaining_movement;
             }
-            GameEventType::SetTurn(turn) => {
-                self.turn = *turn;
+            GameEventType::NextTurn => {
+                self.turn += 1;
+                self.on_turn_start();
             }
+        }
+    }
+
+    fn on_turn_start(&mut self) {
+        for city in self.cities.values_mut() {
+            city.on_turn_start();
+        }
+
+        for unit in self.units.values_mut() {
+            unit.on_turn_start();
         }
     }
 

@@ -1,4 +1,5 @@
 mod game_map;
+mod map_position;
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -16,6 +17,7 @@ use serde::{Serialize, Deserialize};
 use laminar::*;
 
 pub use game_map::*;
+pub use map_position::*;
 
 pub const SERVER: &str = "127.0.0.1:12351";
 pub const CLIENT: &str = "127.0.0.1:12352";

@@ -24,14 +24,12 @@ pub fn run_server() {
             MessageToServerType::Action(action) => {
                 let events = game_world.process_action(&action);
                 for event in events {
-                    game_world.apply_event(&event);
                     connection.send_message(MessageToClient { message_type: MessageToClientType::Event(event) })
                 }
             }
             MessageToServerType::NextTurn => {
                 let events = game_world.next_turn();
                 for event in events {
-                    game_world.apply_event(&event);
                     connection.send_message(MessageToClient { message_type: MessageToClientType::Event(event) })
                 }
             }
