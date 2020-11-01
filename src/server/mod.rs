@@ -28,7 +28,14 @@ pub fn run_server() {
                     connection.send_message(MessageToClient { message_type: MessageToClientType::Event(event) })
                 }
             }
-            _ => panic!("Unexpected message: {:?}", message),
+            MessageToServerType::NextTurn => {
+                let events = game_world.next_turn();
+                for event in events {
+                    game_world.apply_event(&event);
+                    connection.send_message(MessageToClient { message_type: MessageToClientType::Event(event) })
+                }
+            }
+            MessageToServerType::Hello => panic!("Unexpected message: {:?}", message),
         }
     }
 

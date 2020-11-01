@@ -141,6 +141,7 @@ impl MainState {
                 let object = ObjectType::Unit(unit_id);
                 self.hitboxes.get_mut(&object).unwrap().set_tile_pos(position);
             }
+            _ => {}
         }
     }
 }
@@ -154,7 +155,9 @@ impl EventHandler for MainState {
             }
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        // TODO sleep enough to limit to 60 UPS
+        // Possibly less? Could do with like 20
+        std::thread::sleep(std::time::Duration::from_millis(20));
 
         Ok(())
     }
@@ -209,9 +212,25 @@ impl EventHandler for MainState {
 
             let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-            let MainState { world, selected, ref offset, .. } = self;
+            let MainState { world, selected, ref offset, connection, .. } = self;
 
             let func = |ui: &imgui::Ui| {
+                const TURN_WINDOW_HEIGHT: f32 = 80.0;
+                const TURN_WINDOW_WIDTH: f32 = 200.0;
+                imgui::Window::new(im_str!("Turn"))
+                    .size([TURN_WINDOW_WIDTH, TURN_WINDOW_HEIGHT], imgui::Condition::Always)
+                    .position([0.0, screen_height - TURN_WINDOW_HEIGHT], imgui::Condition::Always)
+                    .collapsible(false)
+                    .movable(false)
+                    .resizable(false)
+                    .build(ui, || {
+                        ui.text(format!("Turn {}", world.turn()));
+                        let next_turn_clicked = ui.button(im_str!("Next turn"), [TURN_WINDOW_WIDTH - 20.0, 25.0]);
+                        if next_turn_clicked {
+                            connection.send_message(MessageToServer { message_type: MessageToServerType::NextTurn });
+                        }
+                    });
+
                 if let Some(selected) = selected {
                     let text = match selected {
                         ObjectType::Tile(pos) => {

@@ -35,6 +35,7 @@ pub struct MessageToClient {
 pub enum MessageToServerType {
     Hello,
     Action(GameActionType),
+    NextTurn,
     Goodbye,
 }
 

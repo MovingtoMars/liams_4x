@@ -79,6 +79,7 @@ pub enum GameActionType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameEventType {
     MoveUnit { unit_id: UnitId, position: MapPosition },
+    SetTurn(u16),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -244,6 +245,8 @@ pub struct GameWorld {
 
     next_unit_id: u16,
     next_city_id: u16,
+
+    turn: u16,
 }
 
 impl GameWorld {
@@ -254,7 +257,16 @@ impl GameWorld {
             cities: HashMap::new(),
             next_unit_id: 0,
             next_city_id: 0,
+            turn: 1,
         }
+    }
+
+    pub fn turn(&self) -> u16 {
+        self.turn
+    }
+
+    pub fn next_turn(&mut self) -> Vec<GameEventType> {
+        vec![GameEventType::SetTurn(self.turn + 1)]
     }
 
     fn next_unit_id(&mut self) -> UnitId {
@@ -351,6 +363,9 @@ impl GameWorld {
         match event_type {
             GameEventType::MoveUnit { unit_id, position } => {
                 self.set_unit_position(*unit_id, *position);
+            }
+            GameEventType::SetTurn(turn) => {
+                self.turn = *turn;
             }
         }
     }
