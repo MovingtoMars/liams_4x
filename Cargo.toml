@@ -1,5 +1,5 @@
 [package]
-name = "civilization7"
+name = "liams_civilization"
 version = "0.1.0"
 authors = ["confusedcyborg"]
 edition = "2018"

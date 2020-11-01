@@ -268,23 +268,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "civilization7"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "gfx_core",
- "gfx_device_gl",
- "ggez",
- "imgui",
- "imgui-gfx-renderer",
- "laminar",
- "ncollide2d",
- "rand 0.7.3",
- "ron",
- "serde",
-]
-
-[[package]]
 name = "clang-sys"
 version = "0.29.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1041,6 +1024,23 @@ dependencies = [
  "byteorder",
  "ogg",
  "smallvec 0.6.13",
+]
+
+[[package]]
+name = "liams_civilization"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "gfx_core",
+ "gfx_device_gl",
+ "ggez",
+ "imgui",
+ "imgui-gfx-renderer",
+ "laminar",
+ "ncollide2d",
+ "rand 0.7.3",
+ "ron",
+ "serde",
 ]
 
 [[package]]
