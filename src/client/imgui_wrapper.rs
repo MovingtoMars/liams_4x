@@ -21,11 +21,17 @@ struct MouseState {
   wheel_h: f32,
 }
 
+pub struct ImGuiFonts {
+  pub open_sans_regular_22: FontId,
+  pub open_sans_semi_bold_30: FontId,
+}
+
 pub struct ImGuiWrapper {
   pub imgui: imgui::Context,
   pub renderer: Renderer<gfx_core::format::Rgba8, gfx_device_gl::Resources>,
   last_frame: Instant,
   mouse_state: MouseState,
+  fonts: ImGuiFonts,
 }
 
 impl ImGuiWrapper {
@@ -53,7 +59,7 @@ impl ImGuiWrapper {
     };
 
     // Renderer
-    let renderer = Renderer::init(&mut imgui, &mut *factory, shaders).unwrap();
+    let mut renderer = Renderer::init(&mut imgui, &mut *factory, shaders).unwrap();
 
     {
       let io = imgui.io_mut();
@@ -81,16 +87,37 @@ impl ImGuiWrapper {
       io[Key::Z] = KeyCode::Z as _;
     }
 
+    let open_sans_regular_bytes: &'static [u8] = include_bytes!("../../resources/fonts/open_sans/OpenSans-Regular.ttf");
+    let open_sans_semi_bold_bytes: &'static [u8] = include_bytes!("../../resources/fonts/open_sans/OpenSans-SemiBold.ttf");
+
+    let open_sans_regular_22 = imgui.fonts().add_font(&[FontSource::TtfData {
+        data: open_sans_regular_bytes,
+        size_pixels: 22.0,
+        config: None,
+    }]);
+
+    let open_sans_semi_bold_30 = imgui.fonts().add_font(&[FontSource::TtfData {
+        data: open_sans_semi_bold_bytes,
+        size_pixels: 30.0,
+        config: None,
+    }]);
+
+    renderer.reload_font_texture(&mut imgui, factory).unwrap();
+
     // Create instance
     Self {
       imgui,
       renderer,
       last_frame: Instant::now(),
       mouse_state: MouseState::default(),
+      fonts: ImGuiFonts {
+        open_sans_regular_22,
+        open_sans_semi_bold_30,
+      },
     }
   }
 
-  pub fn render<F: FnOnce(&Ui)>(&mut self, ctx: &mut Context, hidpi_factor: f32, f: F) {
+  pub fn render<F: FnOnce(&Ui, &ImGuiFonts)>(&mut self, ctx: &mut Context, hidpi_factor: f32, f: F) {
     // Update mouse
     self.update_mouse();
 
@@ -110,8 +137,9 @@ impl ImGuiWrapper {
     // Various ui things
     {
       // Window
-      f(&ui);
-      // ui.show_demo_window(&mut show);
+      let open_sans_regular_22_handle = ui.push_font(self.fonts.open_sans_regular_22);
+      f(&ui, &self.fonts);
+      open_sans_regular_22_handle.pop(&ui);
     }
 
     // Render

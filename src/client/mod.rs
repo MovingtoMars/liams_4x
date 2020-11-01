@@ -22,6 +22,7 @@ use ncollide2d::math::Translation;
 use crate::common::*;
 
 use self::constants::*;
+use self::imgui_wrapper::ImGuiFonts;
 use self::utils::get_tile_window_pos;
 
 use drag::Drag;
@@ -250,16 +251,17 @@ impl EventHandler for MainState {
 
             let fps = ggez::timer::fps(ctx);
 
-            let func = |ui: &imgui::Ui| {
+            let func = |ui: &imgui::Ui, fonts: &ImGuiFonts| {
                 imgui::Window::new(im_str!("Developer"))
                     .position([0.0, 0.0], imgui::Condition::Once)
+                    .size_constraints([200.0, 50.0], [10000000.0, 1000000.0])
                     .always_auto_resize(true)
                     .build(ui, || {
                         ui.text(format!("FPS: {:.2}", fps));
                     });
 
-                const TURN_WINDOW_HEIGHT: f32 = 80.0;
-                const TURN_WINDOW_WIDTH: f32 = 200.0;
+                const TURN_WINDOW_HEIGHT: f32 = 110.0;
+                const TURN_WINDOW_WIDTH: f32 = 250.0;
                 imgui::Window::new(im_str!("Turn"))
                     .size([TURN_WINDOW_WIDTH, TURN_WINDOW_HEIGHT], imgui::Condition::Always)
                     .position([0.0, screen_height - TURN_WINDOW_HEIGHT], imgui::Condition::Always)
@@ -268,7 +270,9 @@ impl EventHandler for MainState {
                     .resizable(false)
                     .build(ui, || {
                         ui.text(format!("Turn {}", world.turn()));
-                        let next_turn_clicked = ui.button(im_str!("Next turn"), [TURN_WINDOW_WIDTH - 20.0, 25.0]);
+                        let open_sans_semi_bold_30_handle = ui.push_font(fonts.open_sans_semi_bold_30);
+                        let next_turn_clicked = ui.button(im_str!("Next turn"), [TURN_WINDOW_WIDTH - 20.0, 40.0]);
+                        open_sans_semi_bold_30_handle.pop(ui);
                         if next_turn_clicked {
                             connection.send_message(MessageToServer { message_type: MessageToServerType::NextTurn });
                         }
@@ -300,10 +304,12 @@ impl EventHandler for MainState {
                       });
                 }
 
+
+                let open_sans_semi_bold_30_handle = ui.push_font(fonts.open_sans_semi_bold_30);
                 for city in world.cities() {
                     let dest_point = offset * (Translation::new(0.0, 0.0) * get_tile_window_pos(city.position()));
 
-                    let width = TILE_INNER_SMALL_WIDTH * 1.1;
+                    let width = TILE_INNER_WIDTH * 1.1;
 
                     imgui::Window::new(&ImString::new(format!("city for tile {}", city.position())))
                         .no_decoration()
@@ -312,12 +318,13 @@ impl EventHandler for MainState {
                         .always_auto_resize(true)
                         .draw_background(false)
                         .build(ui, || {
-                            let clicked = ui.button(&ImString::new(city.name()), [width, 30.0]);
+                            let clicked = ui.button(&ImString::new(city.name()), [width, 40.0]);
                             if clicked {
                                 *selected = Some(ObjectType::City(city.id()));
                             }
                         });
                 }
+                open_sans_semi_bold_30_handle.pop(ui);
             };
             self.imgui_wrapper.render(ctx, self.hidpi_factor, func);
         }
