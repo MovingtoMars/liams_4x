@@ -4,11 +4,7 @@ mod map_position;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use std::thread::{yield_now, sleep};
 use std::time::Duration;
-use std::collections::VecDeque;
-use std::time::Instant;
 
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
@@ -114,7 +110,7 @@ impl<S: Serialize, R: for<'a> Deserialize<'a> + Debug> Connection<S, R> {
             if let Some(message) = self.receive_message() {
                 return message;
             }
-            std::thread::sleep(std::time::Duration::from_millis(1));
+            std::thread::sleep(Duration::from_millis(1));
         }
     }
 }
