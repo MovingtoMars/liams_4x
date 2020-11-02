@@ -1,6 +1,9 @@
 mod game_map;
 mod map_position;
 mod city_names;
+mod civilization;
+mod unit;
+mod generate_world;
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -16,12 +19,15 @@ use serde::{Serialize, Deserialize};
 pub use game_map::*;
 pub use map_position::*;
 pub use city_names::*;
+pub use civilization::*;
+pub use unit::*;
+pub use generate_world::*;
 
 pub const SERVER: &str = "127.0.0.1:12351";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageToClientType {
-    InitializeWorld(GameWorld),
+    InitializeWorld{ world: GameWorld, civilization_id: CivilizationId },
     Event(GameEventType),
     Nothing,
 }
@@ -33,7 +39,7 @@ pub struct MessageToClient {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageToServerType {
-    Hello,
+    Hello { name: String },
     Action(GameActionType),
     NextTurn,
     Goodbye,

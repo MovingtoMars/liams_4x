@@ -65,18 +65,19 @@ struct MainState {
     hitboxes: HashMap<HitboxKey, Hitbox>,
     connection: Connection<MessageToServer, MessageToClient>,
     drawable_window_size: (f32, f32),
+    civilization_id: CivilizationId,
 }
 
 impl MainState {
     fn new(mut ctx: &mut Context, hidpi_factor: f32) -> GameResult<MainState> {
         let mut connection: Connection<MessageToServer, MessageToClient> = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
 
-        connection.send_message(MessageToServer { message_type: MessageToServerType::Hello });
+        connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: "devplayer".into() } });
 
         connection.receive_message_blocking();
 
-        let world = match connection.receive_message_blocking().message_type {
-            MessageToClientType::InitializeWorld(game_world) => game_world,
+        let (world, civilization_id) = match connection.receive_message_blocking().message_type {
+            MessageToClientType::InitializeWorld { world, civilization_id } => (world, civilization_id),
             message => panic!("Expected MessageToClientType::InitializeWorld, got {:?}", message),
         };
 
@@ -111,6 +112,7 @@ impl MainState {
             hitboxes,
             connection,
             drawable_window_size: (0.0, 0.0),
+            civilization_id,
         };
         Ok(s)
     }
@@ -176,7 +178,10 @@ impl MainState {
                     }
                 }
             }
-            GameEventType::FoundCity { position } => {
+            GameEventType::FoundCity { position, owner } => {
+                if owner != self.civilization_id {
+                    return;
+                }
                 let city_id = self.world.map.tile(position).city.unwrap();
                 let city_name = self.world.city(city_id).unwrap().name();
                 self.selected = Some(SelectedObject::City(city_id, ImString::new(city_name)));
@@ -279,19 +284,27 @@ impl EventHandler for MainState {
 
             let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-            let MainState { world, selected, ref offset, connection, .. } = self;
+            let MainState { civilization_id: you_civilization_id, world, selected, ref offset, connection, .. } = self;
 
             let fps = ggez::timer::fps(ctx);
 
             //  TODO use ui.current_font_size() to size buttons, etc
             let func = |ui: &imgui::Ui, fonts: &ImGuiFonts| {
-                imgui::Window::new(im_str!("Developer"))
+                imgui::Window::new(im_str!("Overview"))
                     .position([0.0, 0.0], imgui::Condition::Once)
                     .size_constraints([200.0, 50.0], [10000000.0, 1000000.0])
                     .always_auto_resize(true)
                     .build(ui, || {
-                        ui.text(format!("FPS: {:.2}", fps));
+                        ui.text(format!("FPS: {:.0}", fps));
                         ui.text(format!("World: {}x{}", world.map.width(), world.map.height()));
+                        ui.spacing();
+                        ui.separator();
+                        ui.spacing();
+                        ui.text("Civilizations:");
+                        for civ in world.civilizations() {
+                            let you_str = if civ.id() == *you_civilization_id { "(you)" } else { "" };
+                            ui.text(format!("{} {}", civ.player_name(), you_str));
+                        }
                     });
 
                 const TURN_WINDOW_HEIGHT: f32 = 110.0;
@@ -329,7 +342,9 @@ impl EventHandler for MainState {
                                 },
                                 SelectedObject::Unit(unit_id) => {
                                     let unit = world.unit(*unit_id).unwrap();
+                                    let owner_name = world.civilization(unit.owner()).unwrap().player_name();
                                     ui.text(format!("{} at {}", unit.unit_type(), unit.position()));
+                                    ui.text(format!("Owner: {}", owner_name));
                                     ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
                                     ui.spacing();
                                     ui.spacing();
@@ -356,6 +371,9 @@ impl EventHandler for MainState {
                                         // Perhaps debounce, or set this to false.
                                         .enter_returns_true(false)
                                         .build();
+
+                                    let owner_name = world.civilization(city.owner()).unwrap().player_name();
+                                    ui.text(format!("Owner: {}", owner_name));
                                     ui.text(format!("City at {}", city.position()));
 
                                     if city_name_changed {

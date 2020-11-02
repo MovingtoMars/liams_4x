@@ -21,16 +21,22 @@ pub fn run_server() {
 fn handle_connection(mut connection: Connection<MessageToClient, MessageToServer>) {
     println!("Handling connection...");
 
-    let mut game_world = generate_game_world(60, 40);
+    let mut player_names = vec![];
 
-    if let MessageToServer { message_type: MessageToServerType::Hello } = connection.receive_message_blocking() {
-        // Everything went as expected
+    if let MessageToServer { message_type: MessageToServerType::Hello { name } } = connection.receive_message_blocking() {
+        player_names.push(name);
     } else {
         panic!("unknown first message to server");
     }
 
+    let mut game_world = GameWorld::generate(60, 40, &player_names);
+
     connection.send_message(MessageToClient { message_type: MessageToClientType::Nothing });
-    connection.send_message(MessageToClient { message_type: MessageToClientType::InitializeWorld(game_world.clone()) });
+    let initialize_stuff = MessageToClientType::InitializeWorld {
+        world: game_world.clone(),
+        civilization_id: game_world.civilizations().next().unwrap().id(),
+    };
+    connection.send_message(MessageToClient { message_type: initialize_stuff });
 
     loop {
         let message = connection.receive_message_blocking();
@@ -50,7 +56,7 @@ fn handle_connection(mut connection: Connection<MessageToClient, MessageToServer
                     connection.send_message(MessageToClient { message_type: MessageToClientType::Event(event) })
                 }
             }
-            MessageToServerType::Hello => panic!("Unexpected message: {:?}", message),
+            MessageToServerType::Hello { .. } => panic!("Unexpected message: {:?}", message),
         }
     }
 
