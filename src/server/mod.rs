@@ -1,11 +1,27 @@
 use crate::common::*;
 
+use std::net::TcpListener;
+
 pub fn run_server() {
-    println!("Starting server...");
+    println!("Server started.");
+    let listener = TcpListener::bind(SERVER).unwrap();
 
-    let mut game_world = generate_game_world(20, 10);
+    loop {
+        match listener.accept() {
+            Ok((stream, _)) => {
+                handle_connection(Connection::new(stream));
+                break;
+            },
+            Err(e) => panic!("{:?}", e),
+        }
+    }
+    println!("Server stopped.");
+}
 
-    let mut connection = Connection::new(SERVER, CLIENT);
+fn handle_connection(mut connection: Connection<MessageToClient, MessageToServer>) {
+    println!("Handling connection...");
+
+    let mut game_world = generate_game_world(60, 40);
 
     if let MessageToServer { message_type: MessageToServerType::Hello } = connection.receive_message_blocking() {
         // Everything went as expected
@@ -13,6 +29,7 @@ pub fn run_server() {
         panic!("unknown first message to server");
     }
 
+    connection.send_message(MessageToClient { message_type: MessageToClientType::Nothing });
     connection.send_message(MessageToClient { message_type: MessageToClientType::InitializeWorld(game_world.clone()) });
 
     loop {
@@ -37,5 +54,5 @@ pub fn run_server() {
         }
     }
 
-    println!("Stopping server...");
+    println!("Finishing with connection...");
 }

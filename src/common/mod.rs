@@ -2,28 +2,28 @@ mod game_map;
 mod map_position;
 mod city_names;
 
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
+use std::net::TcpStream;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
-use crossbeam_channel::Receiver;
-use crossbeam_channel::Sender;
-use crossbeam_channel::TryRecvError;
 use serde::{Serialize, Deserialize};
-use laminar::*;
 
 pub use game_map::*;
 pub use map_position::*;
 pub use city_names::*;
 
 pub const SERVER: &str = "127.0.0.1:12351";
-pub const CLIENT: &str = "127.0.0.1:12352";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageToClientType {
     InitializeWorld(GameWorld),
     Event(GameEventType),
+    Nothing,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,63 +48,55 @@ pub struct MessageToServer {
 // TODO NAT hole-punching.
 // TODO read up on for
 pub struct Connection<S: Serialize, R: for<'a> Deserialize<'a> + Debug>  {
-    target: SocketAddr,
+    stream: TcpStream,
+
+    received_messages: Arc<Mutex<VecDeque<String>>>,
 
     _s: PhantomData<S>,
     _r: PhantomData<R>,
-
-    receiver: Receiver<SocketEvent>,
-    sender: Sender<Packet>,
 }
 
-use std::net::ToSocketAddrs;
+impl<S: Serialize, R: for<'a> Deserialize<'a> + Serialize + Debug> Connection<S, R> {
+    pub fn new(stream: TcpStream) -> Self {
 
-impl<S: Serialize, R: for<'a> Deserialize<'a> + Debug> Connection<S, R> {
-    pub fn new<T: ToSocketAddrs, U: ToSocketAddrs>(bind: T, target: U) -> Self {
-        let mut config = Config::default();
-        config.heartbeat_interval = Some(Duration::from_millis(100));
-        let mut socket = Socket::bind_with_config(bind, config).unwrap();
+        let received_messages = Arc::new(Mutex::new(VecDeque::new()));
 
-        let receiver = socket.get_event_receiver();
-        let sender = socket.get_packet_sender();
-
+        let stream2 = stream.try_clone().unwrap();
+        let received_messages2 = received_messages.clone();
         std::thread::spawn(move || {
-            socket.start_polling_with_duration(Some(Duration::from_millis(10)));
+            loop {
+                let message: R = bincode::deserialize_from(&stream2).expect("bincode deserialization failed");
+                // hack: can't get lifetimes to work nicely, so we serialize the message,
+                // send it out of the thread, then deserialize it.
+                received_messages2.lock().unwrap().push_back(ron::to_string(&message).unwrap());
+            }
         });
 
         Self {
-            target: target.to_socket_addrs().unwrap().next().unwrap(),
+            stream,
+            received_messages,
             _s: PhantomData,
             _r: PhantomData,
-            receiver,
-            sender,
         }
     }
 
+    pub fn peer_addr(&self) -> SocketAddr {
+        self.stream.peer_addr().unwrap()
+    }
+
     pub fn send_message(&mut self, message: S) {
-        self.sender.send(Packet::reliable_ordered(
-            self.target,
-            ron::to_string(&message).unwrap().into(),
-            None,
-        )).unwrap();
+        bincode::serialize_into(&self.stream, &message).expect("bincode serialization failed");
     }
 
     pub fn receive_message(&mut self) -> Option<R> {
-        match self.receiver.try_recv() {
-            Ok(SocketEvent::Packet(packet)) => {
-                if packet.addr() == self.target {
-                    let text: String = String::from_utf8(packet.payload().to_owned()).unwrap();
-                    let message: R = ron::from_str(&text).unwrap();
-                    println!("Received: {:?}", message);
-                    Some(message)
-                } else {
-                    panic!("Client received packet from unknown sender");
-                }
-            }
-            Ok(SocketEvent::Timeout(_)) => panic!("client connection to server timeout"),
-            Ok(_) => None,
-            Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => panic!("disconnected"),
+        if let Some(received_message) = self.received_messages.lock().unwrap().pop_front() {
+            let text: String = String::from_utf8(received_message.into()).unwrap();
+            let message: R = ron::from_str(&text).unwrap();
+            println!("Received: {:?}", message);
+
+            Some(message)
+        } else {
+            None
         }
     }
 

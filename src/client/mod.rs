@@ -64,13 +64,16 @@ struct MainState {
     // TODO turn this into a ncollide world
     hitboxes: HashMap<HitboxKey, Hitbox>,
     connection: Connection<MessageToServer, MessageToClient>,
+    drawable_window_size: (f32, f32),
 }
 
 impl MainState {
     fn new(mut ctx: &mut Context, hidpi_factor: f32) -> GameResult<MainState> {
-        let mut connection: Connection<MessageToServer, MessageToClient> = Connection::new(CLIENT, SERVER);
+        let mut connection: Connection<MessageToServer, MessageToClient> = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
 
         connection.send_message(MessageToServer { message_type: MessageToServerType::Hello });
+
+        connection.receive_message_blocking();
 
         let world = match connection.receive_message_blocking().message_type {
             MessageToClientType::InitializeWorld(game_world) => game_world,
@@ -107,6 +110,7 @@ impl MainState {
             selected: None,
             hitboxes,
             connection,
+            drawable_window_size: (0.0, 0.0),
         };
         Ok(s)
     }
@@ -121,12 +125,24 @@ impl MainState {
         self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
     }
 
+    fn in_drawable_bounds(&self, dest_point: mint::Point2<f32>, width: f32, height: f32) -> bool {
+        dest_point.x < self.drawable_window_size.0 + width &&
+        dest_point.y < self.drawable_window_size.1 + height &&
+        dest_point.x > -width &&
+        dest_point.y > -height
+    }
+
     fn draw_tile_sprite(&self, ctx: &mut Context, pos: MapPosition, sprite_index: usize, color: Option<graphics::Color>) {
         let dest_point = self.offset * get_tile_window_pos(pos);
+        let dest_point = mint::Point2 { x: dest_point.x, y: dest_point.y };
+
+        if !self.in_drawable_bounds(dest_point, TILE_WIDTH, TILE_HEIGHT) {
+            return;
+        }
 
         let mut params = DrawParam::default()
             .src(get_tile_image_src_rect(sprite_index))
-            .dest(mint::Point2 { x: dest_point.x, y: dest_point.y });
+            .dest(dest_point);
 
         if let Some(color) = color {
             params = params.color(color);
@@ -192,6 +208,8 @@ impl EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
+        self.drawable_window_size = graphics::drawable_size(ctx);
+
         graphics::clear(ctx, graphics::BLACK);
 
         // Render game stuff
@@ -273,6 +291,7 @@ impl EventHandler for MainState {
                     .always_auto_resize(true)
                     .build(ui, || {
                         ui.text(format!("FPS: {:.2}", fps));
+                        ui.text(format!("World: {}x{}", world.map.width(), world.map.height()));
                     });
 
                 const TURN_WINDOW_HEIGHT: f32 = 110.0;
