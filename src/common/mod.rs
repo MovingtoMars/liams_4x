@@ -86,7 +86,7 @@ impl<S: Serialize, R: for<'a> Deserialize<'a> + Serialize + Debug> Connection<S,
         }
     }
 
-    pub fn peer_addr(&self) -> SocketAddr {
+    pub fn _peer_addr(&self) -> SocketAddr {
         self.stream.peer_addr().unwrap()
     }
 

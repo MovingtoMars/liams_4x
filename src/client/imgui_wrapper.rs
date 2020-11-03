@@ -12,6 +12,8 @@ use imgui_gfx_renderer::*;
 
 use std::time::Instant;
 
+use super::InputEvent;
+
 // TODO integrate with system clipboard
 // TODO go through https://github.com/ocornut/imgui/blob/master/docs/FAQ.md and add stuff we should have
 
@@ -234,5 +236,58 @@ impl ImGuiWrapper {
 
   pub fn want_capture_keyboard(&self) -> bool {
       self.imgui.io().want_capture_keyboard
+  }
+
+  // return want capture
+  pub fn handle_event(&mut self, event: &InputEvent) -> bool {
+      match *event {
+          InputEvent::MouseMotionEvent { x, y } => {
+              self.update_mouse_pos(x, y);
+              if self.want_capture_mouse() {
+                  return true;
+              }
+          }
+          // TODO?
+          InputEvent::MouseDownEvent { button, .. } => {
+              self.update_mouse_down(button);
+              if self.want_capture_mouse() {
+                  return true;
+              }
+          }
+          // TODO?
+          InputEvent::MouseUpEvent { button, .. } => {
+              self.update_mouse_up(button);
+              if self.want_capture_mouse() {
+                  return true;
+              }
+          }
+          InputEvent::KeyDownEvent { code, mods } => {
+              self.update_key_down(code, mods);
+              if self.want_capture_keyboard() {
+                  return true;
+              }
+          }
+          InputEvent::KeyUpEvent { code, mods } => {
+              self.update_key_up(code, mods);
+              if self.want_capture_keyboard() {
+                  return true;
+              }
+          }
+          InputEvent::TextInputEvent(val) => {
+              self.update_text(val);
+              if self.want_capture_keyboard() {
+                  return true;
+              }
+          }
+          InputEvent::ScrollEvent { x, y } => {
+              self.update_scroll(x, y);
+              if self.want_capture_mouse() {
+                  return true;
+              }
+          }
+          InputEvent::Quit => {}
+      }
+
+      false
   }
 }
