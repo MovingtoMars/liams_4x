@@ -37,7 +37,6 @@ use super::hitbox::Hitbox;
 use super::hitbox::HitboxKey;
 use super::hitbox::get_hovered_object;
 use super::imgui_wrapper::ImGuiFonts;
-use super::imgui_wrapper::ImGuiWrapper;
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
@@ -49,7 +48,6 @@ fn get_tile_image_src_rect(index: usize) -> Rect {
 }
 
 pub struct InGameState {
-    imgui_wrapper: ImGuiWrapper,
     tile_sprites: Image,
     world: GameWorld,
     offset: Translation<f32>,
@@ -64,7 +62,7 @@ pub struct InGameState {
 }
 
 impl InGameState {
-    pub fn new(mut ctx: &mut Context) -> GameResult<Self> {
+    pub fn new(ctx: &mut Context) -> GameResult<Self> {
         let mut connection: Connection<MessageToServer, MessageToClient> = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
 
         connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: "devplayer".into() } });
@@ -95,9 +93,7 @@ impl InGameState {
             );
         }
 
-        let imgui_wrapper = ImGuiWrapper::new(&mut ctx);
         let s = InGameState {
-            imgui_wrapper,
             tile_sprites: Image::new(ctx, "/sprites/tiles.png").unwrap(),
             world,
             offset: Translation::new(0.0, 0.0),
@@ -402,15 +398,15 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 }
                 open_sans_semi_bold_30_handle.pop(ui);
             };
-            self.imgui_wrapper.render(ctx, shared_data.hidpi_factor, func);
+            shared_data.imgui_wrapper.render(ctx, shared_data.hidpi_factor, func);
         }
 
         graphics::present(ctx)?;
         Ok(())
     }
 
-    fn input(&mut self, _shared_data: &mut SharedData, event: InputEvent, _started: bool) {
-        if self.imgui_wrapper.handle_event(&event) {
+    fn input(&mut self, shared_data: &mut SharedData, event: InputEvent, _started: bool) {
+        if shared_data.imgui_wrapper.handle_event(&event) {
             return;
         }
 

@@ -13,10 +13,12 @@ use ggez::{Context, GameResult};
 
 use ggez_goodies::scene::SceneStack;
 
+use self::imgui_wrapper::ImGuiWrapper;
 use self::in_game_state::InGameState;
 
 pub struct SharedData {
     hidpi_factor: f32,
+    imgui_wrapper: ImGuiWrapper,
 }
 
 #[derive(Clone, Copy)]
@@ -39,6 +41,7 @@ impl SceneStackHandler {
     fn new(ctx: &mut Context, hidpi_factor: f32) -> Self {
         let global_state = SharedData {
             hidpi_factor,
+            imgui_wrapper: ImGuiWrapper::new(ctx),
         };
         let mut scene_stack = SceneStack::new(ctx, global_state);
 
