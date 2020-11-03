@@ -53,16 +53,16 @@ pub struct MessageToServer {
 
 // TODO NAT hole-punching.
 // TODO read up on for
-pub struct Connection<S: Serialize, R: for<'a> Deserialize<'a> + Debug>  {
+pub struct Connection<S: Serialize, R: serde::de::DeserializeOwned + 'static + Debug + Send>  {
     stream: TcpStream,
 
-    received_messages: Arc<Mutex<VecDeque<String>>>,
+    received_messages: Arc<Mutex<VecDeque<R>>>,
 
     _s: PhantomData<S>,
     _r: PhantomData<R>,
 }
 
-impl<S: Serialize, R: for<'a> Deserialize<'a> + Serialize + Debug> Connection<S, R> {
+impl<S: Serialize, R: serde::de::DeserializeOwned + 'static + Debug + Send> Connection<S, R> {
     pub fn new(stream: TcpStream) -> Self {
 
         let received_messages = Arc::new(Mutex::new(VecDeque::new()));
@@ -74,7 +74,7 @@ impl<S: Serialize, R: for<'a> Deserialize<'a> + Serialize + Debug> Connection<S,
                 let message: R = bincode::deserialize_from(&stream2).expect("bincode deserialization failed");
                 // hack: can't get lifetimes to work nicely, so we serialize the message,
                 // send it out of the thread, then deserialize it.
-                received_messages2.lock().unwrap().push_back(ron::to_string(&message).unwrap());
+                received_messages2.lock().unwrap().push_back(message);
             }
         });
 
@@ -96,11 +96,9 @@ impl<S: Serialize, R: for<'a> Deserialize<'a> + Serialize + Debug> Connection<S,
 
     pub fn receive_message(&mut self) -> Option<R> {
         if let Some(received_message) = self.received_messages.lock().unwrap().pop_front() {
-            let text: String = String::from_utf8(received_message.into()).unwrap();
-            let message: R = ron::from_str(&text).unwrap();
-            println!("Received: {:?}", message);
+            println!("Received: {:?}", received_message);
 
-            Some(message)
+            Some(received_message)
         } else {
             None
         }
