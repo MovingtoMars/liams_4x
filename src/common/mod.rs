@@ -72,8 +72,6 @@ impl<S: Serialize, R: serde::de::DeserializeOwned + 'static + Debug + Send> Conn
         std::thread::spawn(move || {
             loop {
                 let message: R = bincode::deserialize_from(&stream2).expect("bincode deserialization failed");
-                // hack: can't get lifetimes to work nicely, so we serialize the message,
-                // send it out of the thread, then deserialize it.
                 received_messages2.lock().unwrap().push_back(message);
             }
         });
