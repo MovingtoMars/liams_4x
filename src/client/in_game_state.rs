@@ -291,6 +291,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     .build(ui, || {
                         ui.text(format!("FPS: {:.0}", fps));
                         ui.text(format!("World: {}x{}", world.map.width(), world.map.height()));
+                        ui.text(if cfg!(debug_assertions) { "Debug mode" } else { "Release mode" });
                         ui.spacing();
                         ui.separator();
                         ui.spacing();
