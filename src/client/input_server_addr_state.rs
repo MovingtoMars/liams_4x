@@ -76,7 +76,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InputServerAddrState
 
             let full_button_size: [f32; 2] = [window_width - ui.clone_style().window_padding[0] * 2.0, 40.0];
 
-            imgui::Window::new(im_str!("Main Menu"))
+            imgui::Window::new(im_str!("Join Game"))
                 .position([(screen_width - window_width) / 2.0, (screen_height - window_height) / 2.0], Condition::Always)
                 .size([window_width, window_height], Condition::Always)
                 .collapsible(false)
