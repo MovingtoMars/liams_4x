@@ -11,7 +11,7 @@ use super::InputEvent;
 use super::SharedData;
 use super::imgui_wrapper::ImGuiFonts;
 use super::in_game_state::InGameState;
-use crate::common::{SERVER, Connection, MessageToClient, MessageToServer, MessageToClientType, MessageToServerType};
+use crate::common::{SERVER, Connection, MessageToClient, MessageToServer};
 use crate::server;
 
 pub struct LobbyState {
@@ -36,13 +36,13 @@ impl LobbyState {
 
         if let Some(stream) = joining {
             connection = Connection::new(stream);
-            connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: player_name.clone() } });
+            connection.send_message(MessageToServer::Hello { name: player_name.clone() });
             hosting = false;
         } else {
             start_server();
             // We assume that this won't fail...
             connection = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
-            connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: player_name.clone() } });
+            connection.send_message(MessageToServer::Hello { name: player_name.clone() });
             hosting = true;
         };
 
@@ -60,25 +60,25 @@ impl LobbyState {
 impl ggez_goodies::scene::Scene<SharedData, InputEvent> for LobbyState {
     fn update(&mut self, _shared_data: &mut SharedData, ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
         if self.quitting_from_lobby {
-            self.connection.as_mut().unwrap().send_message(MessageToServer { message_type: MessageToServerType::Quit });
+            self.connection.as_mut().unwrap().send_message(MessageToServer::Quit);
             return SceneSwitch::Pop;
         }
 
         if self.starting_game {
             self.starting_game = false;
-            self.connection.as_mut().unwrap().send_message(MessageToServer { message_type: MessageToServerType::Start });
+            self.connection.as_mut().unwrap().send_message(MessageToServer::Start);
         }
 
         if let Some(connection) = &mut self.connection {
             if let Some(message) = connection.receive_message() {
-                match message.message_type {
-                    MessageToClientType::PlayerListChanged(players) => {
+                match message {
+                    MessageToClient::PlayerListChanged(players) => {
                         self.players = players;
                     },
-                    MessageToClientType::InitializeWorld { world, player_id } => {
+                    MessageToClient::InitializeWorld { world, player_id } => {
                         return SceneSwitch::Push(Box::new(InGameState::new(ctx, world, player_id, self.connection.take().unwrap()).unwrap()));
                     }
-                    MessageToClientType::Kick => {
+                    MessageToClient::Kick => {
                         return SceneSwitch::Pop;
                     }
                     _ => panic!("client in lobby state received unexpected message: {:?}", message),

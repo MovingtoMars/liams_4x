@@ -28,7 +28,7 @@ impl LobbyServer {
     }
 
     fn handle_client_init(&mut self, mut connection: Connection<MessageToClient, MessageToServer>) -> LobbyClient {
-        let name = if let MessageToServer { message_type: MessageToServerType::Hello { name } } = connection.receive_message_blocking() {
+        let name = if let MessageToServer::Hello { name } = connection.receive_message_blocking() {
             name
         } else {
             panic!("unknown first message to server");
@@ -78,9 +78,7 @@ impl LobbyServer {
     }
 
     fn broadcast_player_names(&mut self) {
-        self.broadcast(MessageToClient {
-            message_type: MessageToClientType::PlayerListChanged(self.player_names()),
-        });
+        self.broadcast(MessageToClient::PlayerListChanged(self.player_names()));
     }
 
     fn start_game(mut self) -> GameServer {
@@ -94,11 +92,11 @@ impl LobbyServer {
         let game_world = GameWorld::generate(60, 40, init_players);
 
         for client in &mut self.clients {
-            let initialize_stuff = MessageToClientType::InitializeWorld {
+            let initialize_stuff = MessageToClient::InitializeWorld {
                 world: game_world.clone(),
                 player_id: client.player_id,
             };
-            client.connection.send_message(MessageToClient { message_type: initialize_stuff.clone() });
+            client.connection.send_message(initialize_stuff.clone());
         }
 
         GameServer {
@@ -127,18 +125,18 @@ impl LobbyServer {
 
             for client in &mut self.clients {
                 if let Some(message) = client.connection.receive_message() {
-                    match message.message_type {
-                        MessageToServerType::Start => {
+                    match message {
+                        MessageToServer::Start => {
                             if client.is_host {
                                 start_game = true;
                             } else {
                                 panic!();
                             }
                         }
-                        MessageToServerType::Quit => {
+                        MessageToServer::Quit => {
                             // TODO should kick all the clients first.
                             if client.is_host {
-                                self.broadcast(MessageToClient { message_type: MessageToClientType::Kick });
+                                self.broadcast(MessageToClient::Kick);
                                 return None;
                             } else {
                                 client.quitting = true;
@@ -189,25 +187,25 @@ impl GameServer {
             std::thread::sleep(Duration::from_millis(10));
             for i in 0..self.clients.len() {
                 while let Some(message) = self.clients[i].connection.receive_message() {
-                    match message.message_type {
-                        MessageToServerType::Quit => {
+                    match message {
+                        MessageToServer::Quit => {
                             // TODO clients will crash now
                             break;
                         }
-                        MessageToServerType::Action(action) => {
+                        MessageToServer::Action(action) => {
                             let events = self.game_world.process_action(&action);
                             for event in events {
-                                self.broadcast(MessageToClient { message_type: MessageToClientType::Event(event) })
+                                self.broadcast(MessageToClient::Event(event))
                             }
                         }
-                        MessageToServerType::NextTurn => {
+                        MessageToServer::NextTurn => {
                             let events = self.game_world.next_turn();
                             for event in events {
-                                self.broadcast(MessageToClient { message_type: MessageToClientType::Event(event) })
+                                self.broadcast(MessageToClient::Event(event))
                             }
                         }
-                        MessageToServerType::Hello { .. } |
-                        MessageToServerType::Start => panic!("Unexpected message: {:?}", message),
+                        MessageToServer::Hello { .. } |
+                        MessageToServer::Start => panic!("Unexpected message: {:?}", message),
                     }
                 }
             }

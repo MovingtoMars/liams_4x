@@ -21,9 +21,7 @@ use crate::common::{
     GameWorld,
     MapPosition,
     MessageToClient,
-    MessageToClientType,
     MessageToServer,
-    MessageToServerType,
     PlayerId,
     Tile,
     TileType,
@@ -133,11 +131,11 @@ impl InGameState {
     }
 
     fn send_action(&mut self, action: GameActionType) {
-        self.connection.send_message(MessageToServer { message_type: MessageToServerType::Action(action) });
+        self.connection.send_message(MessageToServer::Action(action));
     }
 
     fn on_quit(&mut self) {
-        self.connection.send_message(MessageToServer { message_type: MessageToServerType::Quit });
+        self.connection.send_message(MessageToServer::Quit);
     }
 
     fn apply_event(&mut self, event: &GameEventType) {
@@ -177,9 +175,9 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             return SceneSwitch::Pop;
         }
 
-        while let Some(MessageToClient { message_type }) = self.connection.receive_message() {
-            match message_type {
-                MessageToClientType::Event(event) => self.apply_event(&event),
+        while let Some(message) = self.connection.receive_message() {
+            match message {
+                MessageToClient::Event(event) => self.apply_event(&event),
                 _ => panic!(),
             }
         }
@@ -309,7 +307,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         let next_turn_clicked = ui.button(im_str!("Next turn"), [TURN_WINDOW_WIDTH - 20.0, 40.0]);
                         open_sans_semi_bold_30_handle.pop(ui);
                         if next_turn_clicked {
-                            connection.send_message(MessageToServer { message_type: MessageToServerType::NextTurn });
+                            connection.send_message(MessageToServer::NextTurn);
                         }
                     });
 
@@ -346,7 +344,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                                         let founding_city = ui.button(im_str!("Found city"), sidebar_button_size);
                                         if founding_city {
                                             let action = GameActionType::FoundCity { unit_id: *unit_id };
-                                            connection.send_message(MessageToServer { message_type: MessageToServerType::Action(action) });
+                                            connection.send_message(MessageToServer::Action(action));
                                         }
                                     }
                                 }
@@ -366,7 +364,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
                                     if city_name_changed {
                                         let action = GameActionType::RenameCity { city_id: *city_id, name: city_name_buf.to_string() };
-                                        connection.send_message(MessageToServer { message_type: MessageToServerType::Action(action) });
+                                        connection.send_message(MessageToServer::Action(action));
                                     }
                                 }
                             }

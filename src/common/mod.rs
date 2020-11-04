@@ -29,7 +29,7 @@ pub const SERVER_LISTEN: &str = "0.0.0.0:12351";
 pub const SERVER: &str = "127.0.0.1:12351";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum MessageToClientType {
+pub enum MessageToClient {
     InitializeWorld{ world: GameWorld, player_id: PlayerId },
     Event(GameEventType),
     PlayerListChanged(Vec<String>),
@@ -37,23 +37,12 @@ pub enum MessageToClientType {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MessageToClient {
-    pub message_type: MessageToClientType,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum MessageToServerType {
+pub enum MessageToServer {
     Hello { name: String },
     Start,
     Action(GameActionType),
     NextTurn,
     Quit,
-}
-
-// Does this type add any value?
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MessageToServer {
-    pub message_type: MessageToServerType,
 }
 
 // TODO NAT hole-punching.
