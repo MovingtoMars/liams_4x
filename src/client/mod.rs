@@ -5,6 +5,8 @@ mod drag;
 mod hitbox;
 mod selected_object;
 mod in_game_state;
+mod main_menu_state;
+mod lobby_state;
 
 use ggez::conf;
 use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};
@@ -14,7 +16,7 @@ use ggez::{Context, GameResult};
 use ggez_goodies::scene::SceneStack;
 
 use self::imgui_wrapper::ImGuiWrapper;
-use self::in_game_state::InGameState;
+use self::main_menu_state::MainMenuState;
 
 pub struct SharedData {
     hidpi_factor: f32,
@@ -45,7 +47,8 @@ impl SceneStackHandler {
         };
         let mut scene_stack = SceneStack::new(ctx, global_state);
 
-        scene_stack.push(Box::new(InGameState::new(ctx).unwrap()));
+        // scene_stack.push(Box::new(InGameState::new(ctx).unwrap()));
+        scene_stack.push(Box::new(MainMenuState::new()));
 
         Self { scene_stack }
     }

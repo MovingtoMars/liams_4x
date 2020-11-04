@@ -167,6 +167,7 @@ impl City {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameWorld {
     pub map: GameMap,
+    players: BTreeMap<PlayerId, Player>,
     units: BTreeMap<UnitId, Unit>,
     cities: BTreeMap<CityId, City>,
     civilizations: BTreeMap<CivilizationId, Civilization>,
@@ -181,9 +182,10 @@ pub struct GameWorld {
 }
 
 impl GameWorld {
-    pub fn new(width: MapUnit, height: MapUnit) -> Self {
-        GameWorld {
+    pub fn new(width: MapUnit, height: MapUnit, init_players: Vec<InitPlayer>) -> Self {
+        let mut game = GameWorld {
             map: GameMap::new(width, height),
+            players: BTreeMap::new(),
             units: BTreeMap::new(),
             cities: BTreeMap::new(),
             civilizations: BTreeMap::new(),
@@ -192,22 +194,37 @@ impl GameWorld {
             unit_id_generator: UnitIdGenerator::new(),
             city_name_generator: CityNameGenerator::new(),
             civilization_id_generator: CivilizationIdGenerator::new(),
+        };
+
+        for init_player in init_players {
+            game.new_civilization(init_player);
         }
+
+        game
     }
 
-    pub fn new_civilization<S: Into<String>>(&mut self, player_name: S) -> &mut Civilization {
-        let id = self.civilization_id_generator.next();
-        let civilization = Civilization::new(id, player_name);
-        self.civilizations.insert(id, civilization);
-
-        self.civilizations.get_mut(&id).unwrap()
+    fn new_civilization(&mut self, init_player: InitPlayer) {
+        let civilization_id = self.civilization_id_generator.next();
+        let civilization = Civilization::new(civilization_id, init_player.name.clone());
+        self.civilizations.insert(civilization_id, civilization);
+        let player = Player::new(init_player.id, init_player.name.clone(), civilization_id);
+        self.players.insert(init_player.id, player);
     }
 
+    pub fn players(&self) -> impl Iterator<Item = &Player> {
+        self.players.iter().map(|(_, v)| v)
+    }
+
+    // TODO Option seems unnecessary
+    pub fn player(&self, id: PlayerId) -> Option<&Player> {
+        self.players.get(&id)
+    }
 
     pub fn civilizations(&self) -> impl Iterator<Item = &Civilization> {
         self.civilizations.iter().map(|(_, v)| v)
     }
 
+    // TODO Option seems unnecessary
     pub fn civilization(&self, id: CivilizationId) -> Option<&Civilization> {
         self.civilizations.get(&id)
     }

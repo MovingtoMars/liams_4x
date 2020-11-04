@@ -14,28 +14,27 @@ use ncollide2d::math::Translation;
 
 use ggez_goodies::scene::SceneSwitch;
 
-use crate::common::CivilizationId;
-use crate::common::Connection;
-use crate::common::GameActionType;
-use crate::common::GameEventType;
-use crate::common::GameWorld;
-use crate::common::MapPosition;
-use crate::common::MessageToClient;
-use crate::common::MessageToClientType;
-use crate::common::MessageToServer;
-use crate::common::MessageToServerType;
-use crate::common::SERVER;
-use crate::common::Tile;
-use crate::common::TileType;
-use crate::common::UnitType;
+use crate::common::{
+    Connection,
+    GameActionType,
+    GameEventType,
+    GameWorld,
+    MapPosition,
+    MessageToClient,
+    MessageToClientType,
+    MessageToServer,
+    MessageToServerType,
+    PlayerId,
+    Tile,
+    TileType,
+    UnitType,
+};
 
 use super::InputEvent;
 use super::SharedData;
 use super::constants::*;
 use super::drag::Drag;
-use super::hitbox::Hitbox;
-use super::hitbox::HitboxKey;
-use super::hitbox::get_hovered_object;
+use super::hitbox::{Hitbox, HitboxKey, get_hovered_object};
 use super::imgui_wrapper::ImGuiFonts;
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
@@ -57,23 +56,12 @@ pub struct InGameState {
     hitboxes: HashMap<HitboxKey, Hitbox>,
     connection: Connection<MessageToServer, MessageToClient>,
     drawable_window_size: (f32, f32),
-    civilization_id: CivilizationId,
+    player_id: PlayerId,
     quitting: bool,
 }
 
 impl InGameState {
-    pub fn new(ctx: &mut Context) -> GameResult<Self> {
-        let mut connection: Connection<MessageToServer, MessageToClient> = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
-
-        connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: "devplayer".into() } });
-
-        connection.receive_message_blocking();
-
-        let (world, civilization_id) = match connection.receive_message_blocking().message_type {
-            MessageToClientType::InitializeWorld { world, civilization_id } => (world, civilization_id),
-            message => panic!("Expected MessageToClientType::InitializeWorld, got {:?}", message),
-        };
-
+    pub fn new(ctx: &mut Context, world: GameWorld, player_id: PlayerId, connection: Connection<MessageToServer, MessageToClient>) -> GameResult<Self> {
         let mut hitboxes = HashMap::new();
         for tile in world.map.tiles() {
             hitboxes.insert(
@@ -102,7 +90,7 @@ impl InGameState {
             hitboxes,
             connection,
             drawable_window_size: (0.0, 0.0),
-            civilization_id,
+            player_id,
             quitting: false,
         };
         Ok(s)
@@ -148,8 +136,8 @@ impl InGameState {
         self.connection.send_message(MessageToServer { message_type: MessageToServerType::Action(action) });
     }
 
-    fn close_connection(&mut self) {
-        self.connection.send_message(MessageToServer { message_type: MessageToServerType::Goodbye });
+    fn on_quit(&mut self) {
+        self.connection.send_message(MessageToServer { message_type: MessageToServerType::Quit });
     }
 
     fn apply_event(&mut self, event: &GameEventType) {
@@ -170,7 +158,7 @@ impl InGameState {
                 }
             }
             GameEventType::FoundCity { position, owner } => {
-                if owner != self.civilization_id {
+                if owner != self.world.player(self.player_id).unwrap().civilization_id() {
                     return;
                 }
                 let city_id = self.world.map.tile(position).city.unwrap();
@@ -185,6 +173,7 @@ impl InGameState {
 impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
     fn update(&mut self, _shared_data: &mut SharedData, _ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
         if self.quitting {
+            self.on_quit();
             return SceneSwitch::Pop;
         }
 
@@ -274,12 +263,14 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
             let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-            let InGameState { civilization_id: you_civilization_id, world, selected, ref offset, connection, .. } = self;
+            let Self { player_id: you_player_id, world, selected, ref offset, connection, quitting, .. } = self;
 
             let fps = ggez::timer::fps(ctx);
 
             //  TODO use ui.current_font_size() to size buttons, etc
             let func = |ui: &imgui::Ui, fonts: &ImGuiFonts| {
+                let window_padding = ui.clone_style().window_padding;
+
                 imgui::Window::new(im_str!("Overview"))
                     .position([0.0, 0.0], imgui::Condition::Once)
                     .size_constraints([200.0, 50.0], [10000000.0, 1000000.0])
@@ -291,10 +282,16 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         ui.spacing();
                         ui.separator();
                         ui.spacing();
-                        ui.text("Civilizations:");
-                        for civ in world.civilizations() {
-                            let you_str = if civ.id() == *you_civilization_id { "(you)" } else { "" };
-                            ui.text(format!("{} {}", civ.player_name(), you_str));
+                        ui.text("Players:");
+                        for player in world.players() {
+                            let you_str = if player.id() == *you_player_id { "(you)" } else { "" };
+                            ui.text(format!("{} {}", player.name(), you_str));
+                        }
+                        ui.spacing();
+                        ui.separator();
+                        ui.spacing();
+                        if ui.button(im_str!("Quit"), [200.0 - window_padding[0] / 2.0, 30.0]) {
+                            *quitting = true;
                         }
                     });
 
@@ -318,7 +315,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
                 if let Some(selected) = selected {
                     const SIDEBAR_WIDTH: f32 = 350.0;
-                    let sidebar_button_size: [f32; 2] = [SIDEBAR_WIDTH - ui.clone_style().window_padding[0] * 2.0, 40.0];
+                    let sidebar_button_size: [f32; 2] = [SIDEBAR_WIDTH - window_padding[0] * 2.0, 40.0];
                     imgui::Window::new(im_str!("Selection"))
                         .size([SIDEBAR_WIDTH, screen_height], imgui::Condition::Always)
                         .position([screen_width - SIDEBAR_WIDTH, 0.0], imgui::Condition::Always)
@@ -401,8 +398,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             shared_data.imgui_wrapper.render(ctx, shared_data.hidpi_factor, func);
         }
 
-        graphics::present(ctx)?;
-        Ok(())
+        graphics::present(ctx)
     }
 
     fn input(&mut self, shared_data: &mut SharedData, event: InputEvent, _started: bool) {
@@ -455,7 +451,6 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             }
             InputEvent::KeyUpEvent { code, mods: _mods } => {
                 if [KeyCode::Escape].contains(&code) {
-                    self.close_connection();
                     self.quitting = true;
                 }
             }
@@ -466,7 +461,6 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
             }
             InputEvent::Quit => {
-                self.close_connection();
                 self.quitting = true;
             }
         }

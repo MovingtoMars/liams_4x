@@ -4,6 +4,7 @@ mod city_names;
 mod civilization;
 mod unit;
 mod generate_world;
+mod player;
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -22,14 +23,17 @@ pub use city_names::*;
 pub use civilization::*;
 pub use unit::*;
 pub use generate_world::*;
+pub use player::*;
 
+pub const SERVER_LISTEN: &str = "0.0.0.0:12351";
 pub const SERVER: &str = "127.0.0.1:12351";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageToClientType {
-    InitializeWorld{ world: GameWorld, civilization_id: CivilizationId },
+    InitializeWorld{ world: GameWorld, player_id: PlayerId },
     Event(GameEventType),
-    Nothing,
+    PlayerListChanged(Vec<String>),
+    Kick,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,9 +44,10 @@ pub struct MessageToClient {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageToServerType {
     Hello { name: String },
+    Start,
     Action(GameActionType),
     NextTurn,
-    Goodbye,
+    Quit,
 }
 
 // Does this type add any value?
@@ -88,6 +93,7 @@ impl<S: Serialize, R: serde::de::DeserializeOwned + 'static + Debug + Send> Conn
         self.stream.peer_addr().unwrap()
     }
 
+    // TODO this can probably take &S
     pub fn send_message(&mut self, message: S) {
         bincode::serialize_into(&self.stream, &message).expect("bincode serialization failed");
     }

@@ -1,11 +1,8 @@
 use crate::common::*;
 
 impl GameWorld {
-    pub fn generate(width: MapUnit, height: MapUnit, players: &[String]) -> Self {
-        let mut world = Self::new(width, height);
-        for player in players {
-            world.new_civilization(player);
-        }
+    pub fn generate(width: MapUnit, height: MapUnit, init_players: Vec<InitPlayer>) -> Self {
+        let mut world = Self::new(width, height, init_players);
 
         for x in 0..world.map.width() {
             for y in 0..world.map.height() {
