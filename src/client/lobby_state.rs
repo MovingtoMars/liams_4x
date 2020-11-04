@@ -1,5 +1,6 @@
 use std::thread;
 use std::time::Duration;
+use std::net::TcpStream;
 
 use ggez::graphics;
 use ggez::graphics::Rect;
@@ -16,7 +17,7 @@ use crate::server;
 pub struct LobbyState {
     quitting_from_lobby: bool,
     // TODO force shut down server if it does not go gracefully.
-    hosted_server: Option<()>,
+    hosting: bool,
     connection: Option<Connection<MessageToServer, MessageToClient>>,
     starting_game: bool,
     players: Vec<String>,
@@ -28,27 +29,29 @@ fn start_server() {
     thread::sleep(Duration::from_millis(100));
 }
 
-fn connect(player_name: String) -> Connection<MessageToServer, MessageToClient> {
-    let mut connection = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
-    connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: player_name } });
-    connection
-}
-
 impl LobbyState {
-    pub fn new(hosting: bool, player_name: String) -> Self {
-        let hosted_server = if hosting {
-            start_server();
-            Some(())
+    pub fn new(joining: Option<TcpStream>, player_name: String) -> Self {
+        let mut connection;
+        let hosting;
+
+        if let Some(stream) = joining {
+            connection = Connection::new(stream);
+            connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: player_name.clone() } });
+            hosting = false;
         } else {
-            None
+            start_server();
+            // We assume that this won't fail...
+            connection = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
+            connection.send_message(MessageToServer { message_type: MessageToServerType::Hello { name: player_name.clone() } });
+            hosting = true;
         };
 
 
         Self {
             quitting_from_lobby: false,
             starting_game: false,
-            hosted_server,
-            connection: Some(connect(player_name.clone())),
+            hosting,
+            connection: Some(connection),
             players: vec![],
         }
     }
@@ -93,7 +96,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for LobbyState {
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-        let Self { quitting_from_lobby, hosted_server, players, starting_game, .. } = self;
+        let Self { quitting_from_lobby, hosting, players, starting_game, connection, .. } = self;
 
         let func = move |ui: &imgui::Ui, _fonts: &ImGuiFonts| {
             use imgui::*;
@@ -109,14 +112,17 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for LobbyState {
                 .collapsible(false)
                 .resizable(false)
                 .build(ui, || {
-                    if hosted_server.is_some() {
+                    if *hosting {
                         ui.text(format!("Hosting as: {}", SERVER));
                         ui.spacing();
                         *starting_game = ui.button(im_str!("Start Game"), full_button_size);
-                        ui.spacing();
-                        ui.separator();
-                        ui.spacing();
+                    } else {
+                        ui.text(format!("Connected to: {}", connection.as_ref().unwrap().peer_addr()));
                     }
+
+                    ui.spacing();
+                    ui.separator();
+                    ui.spacing();
 
                     ui.text("Players:");
 

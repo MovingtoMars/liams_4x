@@ -89,7 +89,7 @@ impl<S: Serialize, R: serde::de::DeserializeOwned + 'static + Debug + Send> Conn
         }
     }
 
-    pub fn _peer_addr(&self) -> SocketAddr {
+    pub fn peer_addr(&self) -> SocketAddr {
         self.stream.peer_addr().unwrap()
     }
 

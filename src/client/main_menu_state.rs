@@ -7,6 +7,7 @@ use super::InputEvent;
 use super::SharedData;
 use super::imgui_wrapper::ImGuiFonts;
 use super::lobby_state::LobbyState;
+use super::input_server_addr_state::InputServerAddrState;
 
 pub struct MainMenuState {
     // TODO merge these into 'what to do' enum?
@@ -14,6 +15,7 @@ pub struct MainMenuState {
     quitting: bool,
     hosting: bool,
     joining: bool,
+    // TODO maybe move this to shared state
     player_name: String,
 }
 
@@ -36,11 +38,11 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for MainMenuState {
         }
 
         if self.hosting {
-            return SceneSwitch::Push(Box::new(LobbyState::new(true, self.player_name.clone())));
+            return SceneSwitch::Push(Box::new(LobbyState::new(None, self.player_name.clone())));
         }
 
         if self.joining {
-            return SceneSwitch::Push(Box::new(LobbyState::new(false, self.player_name.clone())));
+            return SceneSwitch::Push(Box::new(InputServerAddrState::new(self.player_name.clone())));
         }
 
         if self.exiting_game {
@@ -74,6 +76,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for MainMenuState {
                 .build(ui, || {
                     let mut name_buf = ImString::new(player_name.as_str());
                     imgui::InputText::new(ui, im_str!("Player Name"), &mut name_buf)
+                        .resize_buffer(true)
                         .build();
                     *player_name = name_buf.to_str().into();
 
