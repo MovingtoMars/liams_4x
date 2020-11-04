@@ -16,6 +16,13 @@ const CITY_NAMES: &[&str] = &[
     "Nelson",
     "Napier",
     "Queenstown",
+    "Porirui",
+    "Rotorua",
+    "Hastings",
+    "Upper Hutt",
+    "Lower Hutt",
+    "Whanganui",
+    "Levin",
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
