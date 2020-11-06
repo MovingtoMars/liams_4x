@@ -286,12 +286,13 @@ impl GameWorld {
         self.units.get_mut(&id).unwrap()
     }
 
-    pub fn process_action(&mut self, action_type: &GameActionType, actioner: PlayerId) -> Vec<GameEventType> {
+    pub fn process_action(&mut self, action_type: &GameActionType, actioner_id: PlayerId) -> Vec<GameEventType> {
         let mut result = Vec::new();
 
         match action_type {
             GameActionType::MoveUnit { unit_id, position } => {
-                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return Vec::new() };
+                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return vec![] };
+                if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
 
                 let target_tile_unoccupied = !self.map.tile(*position).units.contains_key(&unit.unit_type());
                 let target_tile_moveable = self.map.tile(*position).units_can_reside();
@@ -310,8 +311,10 @@ impl GameWorld {
                 }
             }
             GameActionType::FoundCity { unit_id } => {
-                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return Vec::new() };
+                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return vec![] };
+                if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
                 let city_exists_on_tile = self.map.tile(unit.position()).city.is_some();
+
                 if unit.has_settle_ability() && unit.remaining_movement() >= 1 && !city_exists_on_tile {
                     let events = vec![
                         GameEventType::DeleteUnit { unit_id: *unit_id },
@@ -322,14 +325,16 @@ impl GameWorld {
                 }
             }
             GameActionType::RenameCity { city_id, name } => {
-                if self.city(*city_id).is_some() {
+                if let Some(city) = self.city(*city_id) {
+                    if self.player(actioner_id).unwrap().civilization_id() != city.owner() { return vec![] };
+
                     let event = GameEventType::RenameCity { city_id: *city_id, name: name.clone() };
                     self.apply_event(&event);
                     result.push(event);
                 }
             }
             GameActionType::SetReady(ready) => {
-                let event = GameEventType::SetPlayerReady{ player_id: actioner, ready: *ready };
+                let event = GameEventType::SetPlayerReady{ player_id: actioner_id, ready: *ready };
                 self.apply_event(&event);
                 result.push(event);
 

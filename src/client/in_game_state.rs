@@ -166,6 +166,10 @@ impl InGameState {
             _ => {}
         }
     }
+
+    fn can_control_unit(&self, unit: &crate::common::Unit) -> bool {
+        self.world.player(self.player_id).unwrap().civilization_id() == unit.owner()
+    }
 }
 
 impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
@@ -232,7 +236,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
                         self.draw_tile_sprite(ctx, position, sprite_index, None);
 
-                        if ggez::input::mouse::button_pressed(ctx, MouseButton::Right) {
+                        if self.can_control_unit(unit) && ggez::input::mouse::button_pressed(ctx, MouseButton::Right) {
                             let neighbor_map = position.neighbors_at_distance(
                                 self.world.map.width(),
                                 self.world.map.height(),
