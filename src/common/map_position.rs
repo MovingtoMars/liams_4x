@@ -293,4 +293,22 @@ impl TilePosition {
             (false, false) => Self::new(x + 1, y + 1),
         }
     }
+
+    pub fn distance_to(self, p: Self) -> MapUnit {
+        let x_diff=(self.x-p.x).abs();
+        let mut y_max=self.y+x_diff/2;
+        let mut y_min=self.y-(x_diff+1)/2;
+        let mut extra=0;
+        if !self.x_even() {
+            y_max=self.y+(x_diff+1)/2;
+            y_min=self.y-x_diff/2;
+        }
+        if self.y > y_max {
+            extra = p.y-y_max;
+        }
+        if self.y < y_min {
+            extra = y_min-p.y;
+        }
+        x_diff+extra
+    }
 }

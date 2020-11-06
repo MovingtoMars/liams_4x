@@ -469,6 +469,9 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 } else if let MouseButton::Right = button {
                     if let Some(SelectedObject::Unit(unit_id)) = self.selected {
                         if let Some(HitboxKey::Tile(pos)) = hovered {
+                            let sp = self.world.map.shortest_path(self.world.unit(unit_id).unwrap().position(),pos).unwrap();
+                            println!("{:?}", sp);
+
                             let action = GameActionType::MoveUnit { unit_id, position: pos };
                             self.send_action(action);
                         }

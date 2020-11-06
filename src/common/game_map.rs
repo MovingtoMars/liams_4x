@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
 use serde::{Serialize, Deserialize};
 
@@ -141,6 +145,51 @@ impl GameMap {
             }
         }
         modified
+    }
+    pub fn shortest_path(&mut self,s:TilePosition, d:TilePosition) -> Option<Vec<TilePosition>> { // Move this to game_map.rs?
+        // Find shortest path using A* algorithm
+        let mut open_nodes = BinaryHeap::new();
+        let mut visited_nodes = HashSet::new();
+        let mut came_from = HashMap::new();
+        let mut g_score = HashMap::new();
+
+        let init_d = s.distance_to(d);
+        g_score.insert(s,0);
+
+        open_nodes.push((Reverse(init_d),s));
+
+        while !open_nodes.is_empty() {
+            let current_node = open_nodes.peek().unwrap().1;
+            if current_node == d {
+                let mut path = Vec::new();
+                let mut counter = &current_node;
+                while let Some(mp) = came_from.get(counter) {
+                    path.push(*mp);
+                    counter = &mp;
+                }
+                return Some(path);
+            }
+
+            open_nodes.pop();
+            let neigh = current_node.neighbors_at_distance(self.width(), self.height(),2,false); // may be different for different units
+            
+            for (n,_one) in neigh {
+                let temp = g_score.get(&current_node).unwrap()+1; // may need to change this when adding hills
+                if let Some(neighg) = g_score.get(&n) {
+                    if temp > *neighg {
+                        continue;
+                    }
+                }
+
+                came_from.insert(n,current_node);
+                g_score.insert(n,temp);
+                if !visited_nodes.contains(&n) {
+                    visited_nodes.insert(n);
+                    open_nodes.push((Reverse(temp+n.distance_to(d)),n));
+                }
+            }
+        }
+        None
     }
 }
 
