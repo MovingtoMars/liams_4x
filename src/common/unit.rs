@@ -26,12 +26,12 @@ pub struct Unit {
     id: UnitId,
     owner: CivilizationId,
     unit_type: UnitType,
-    pub(in crate::common) position: MapPosition,
+    pub(in crate::common) position: TilePosition,
     pub(in crate::common) remaining_movement: MapUnit,
 }
 
 impl Unit {
-    pub fn new(id: UnitId, owner: CivilizationId, position: MapPosition, unit_type: UnitType) -> Self {
+    pub fn new(id: UnitId, owner: CivilizationId, position: TilePosition, unit_type: UnitType) -> Self {
         let mut ret = Self {
             id,
             owner,
@@ -51,7 +51,7 @@ impl Unit {
         self.unit_type
     }
 
-    pub fn position(&self) -> MapPosition {
+    pub fn position(&self) -> TilePosition {
         self.position
     }
 

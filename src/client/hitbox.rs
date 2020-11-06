@@ -5,7 +5,7 @@ use ncollide2d::math::{Isometry, Translation, Point, Vector};
 use ncollide2d::query::PointQuery;
 
 use crate::client::constants::*;
-use crate::common::MapPosition;
+use crate::common::TilePosition;
 use crate::common::UnitId;
 use crate::client::utils::get_tile_window_pos;
 
@@ -16,7 +16,7 @@ pub struct Hitbox {
 }
 
 impl Hitbox {
-    pub fn set_tile_pos(&mut self, position: MapPosition) {
+    pub fn set_tile_pos(&mut self, position: TilePosition) {
         let render_pos = get_tile_window_pos(position);
         self.isometry = Isometry::new(Vector::new(render_pos.x + TILE_WIDTH / 2.0, render_pos.y + TILE_HEIGHT / 2.0), 0.0);
     }
@@ -77,7 +77,7 @@ impl Hitbox {
 
 #[derive(Clone, Debug, Copy, Hash, PartialEq, Eq)]
 pub enum HitboxKey {
-    Tile(MapPosition),
+    Tile(TilePosition),
     Unit(UnitId),
 }
 

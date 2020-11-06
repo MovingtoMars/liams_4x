@@ -11,7 +11,7 @@ use super::InputEvent;
 use super::SharedData;
 use super::imgui_wrapper::ImGuiFonts;
 use super::in_game_state::InGameState;
-use crate::common::{SERVER, Connection, MessageToClient, MessageToServer};
+use crate::common::{DEFAULT_SERVER, Connection, MessageToClient, MessageToServer};
 use crate::server;
 
 pub struct LobbyState {
@@ -41,7 +41,7 @@ impl LobbyState {
         } else {
             start_server();
             // We assume that this won't fail...
-            connection = Connection::new(std::net::TcpStream::connect(SERVER).unwrap());
+            connection = Connection::new(std::net::TcpStream::connect(DEFAULT_SERVER).unwrap());
             connection.send_message(MessageToServer::Hello { name: player_name.clone() });
             hosting = true;
         };
@@ -113,7 +113,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for LobbyState {
                 .resizable(false)
                 .build(ui, || {
                     if *hosting {
-                        ui.text(format!("Hosting as: {}", SERVER));
+                        ui.text(format!("Hosting as: {}", DEFAULT_SERVER));
                         ui.spacing();
                         *starting_game = ui.button(im_str!("Start Game"), full_button_size);
                     } else {

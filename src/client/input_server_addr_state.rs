@@ -11,7 +11,7 @@ use super::SharedData;
 use super::imgui_wrapper::ImGuiFonts;
 use super::lobby_state::LobbyState;
 
-use crate::common::SERVER;
+use crate::common::DEFAULT_SERVER;
 
 pub struct InputServerAddrState {
     player_name: String,
@@ -27,7 +27,7 @@ impl InputServerAddrState {
         Self {
             player_name,
             joining: false,
-            addr: ImString::new(SERVER),
+            addr: ImString::new(DEFAULT_SERVER),
             quitting: false,
             addr_is_invalid: false,
             connection_failed: false,

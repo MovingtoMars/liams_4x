@@ -25,7 +25,7 @@ impl GameWorld {
                 };
 
                 let civ1 = world.civilizations().next().unwrap().id();
-                let position = MapPosition { x, y };
+                let position = TilePosition { x, y };
 
                 world.map.tile_mut(position).tile_type = tile_type;
 
@@ -48,6 +48,11 @@ impl GameWorld {
 
                 if let (7, 6) = (x, y) {
                     world.new_city(civ1, position);
+                }
+
+                let mut river_current = EdgePosition(TilePosition { x: 6, y: 5 }, CanonicalTileEdge::Top);
+                while world.map.add_river(river_current) {
+                    river_current = river_current.top_left();
                 }
             }
         }

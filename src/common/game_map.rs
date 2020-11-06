@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::BTreeSet;
 
 use serde::{Serialize, Deserialize};
 
@@ -9,7 +9,7 @@ pub type MapUnit = i16;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameActionType {
-    MoveUnit { unit_id: UnitId, position: MapPosition },
+    MoveUnit { unit_id: UnitId, position: TilePosition },
     FoundCity { unit_id: UnitId },
     RenameCity { city_id: CityId, name: String },
     SetReady(bool),
@@ -18,9 +18,9 @@ pub enum GameActionType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameEventType {
     NextTurn,
-    MoveUnit { unit_id: UnitId, position: MapPosition, remaining_movement: MapUnit },
+    MoveUnit { unit_id: UnitId, position: TilePosition, remaining_movement: MapUnit },
     DeleteUnit { unit_id: UnitId },
-    FoundCity { position: MapPosition, owner: CivilizationId },
+    FoundCity { position: TilePosition, owner: CivilizationId },
     RenameCity { city_id: CityId, name: String },
     SetPlayerReady { player_id: PlayerId, ready: bool },
 }
@@ -44,11 +44,13 @@ impl std::fmt::Display for TileType {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tile {
-    pub position: MapPosition,
+    pub position: TilePosition,
     pub tile_type: TileType,
 
-    pub units: HashMap<UnitType, UnitId>,
+    pub units: BTreeMap<UnitType, UnitId>,
     pub city: Option<CityId>,
+
+    pub rivers: BTreeSet<TileEdge>,
 }
 
 impl Tile {
@@ -77,9 +79,10 @@ impl GameMap {
             let mut tile_col = Vec::new();
             for y in 0..height {
                 tile_col.push(Tile {
-                    position: MapPosition { x, y },
+                    position: TilePosition { x, y },
                     tile_type: TileType::Plains,
-                    units: HashMap::new(),
+                    units: BTreeMap::new(),
+                    rivers: BTreeSet::new(),
                     city: None,
                 });
             }
@@ -101,11 +104,23 @@ impl GameMap {
         self.height
     }
 
-    pub fn tile(&self, position: MapPosition) -> &Tile {
+    pub fn try_tile(&self, position: TilePosition) -> Option<&Tile> {
+        if self.has_tile(position) {
+            Some(self.tile(position))
+        } else {
+            None
+        }
+    }
+
+    pub fn has_tile(&self, position: TilePosition) -> bool {
+        position.x >= 0 && position.y >= 0 && position.x < self.width && position.y < self.height
+    }
+
+    pub fn tile(&self, position: TilePosition) -> &Tile {
         &self.tiles[position.x as usize][position.y as usize]
     }
 
-    pub fn tile_mut(&mut self, position: MapPosition) -> &mut Tile {
+    pub fn tile_mut(&mut self, position: TilePosition) -> &mut Tile {
         &mut self.tiles[position.x as usize][position.y as usize]
     }
 
@@ -113,12 +128,23 @@ impl GameMap {
         (0..self.width)
             .into_iter()
             .flat_map(move |x| {
-                (0..self.height).into_iter().map(move |y| self.tile(MapPosition { x, y }))
+                (0..self.height).into_iter().map(move |y| self.tile(TilePosition { x, y }))
             })
+    }
+
+    pub fn add_river(&mut self, pos: EdgePosition) -> bool {
+        let mut modified = false;
+        for (tile, edge) in &pos.boundary_tile_and_edges() {
+            if self.has_tile(*tile) {
+                self.tile_mut(*tile).rivers.insert(*edge);
+                modified = true;
+            }
+        }
+        modified
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum UnitType {
     Civilian,
     Soldier,
@@ -140,7 +166,7 @@ pub struct CityId(u16);
 pub struct City {
     id: CityId,
     owner: CivilizationId,
-    position: MapPosition,
+    position: TilePosition,
     name: String,
 }
 
@@ -153,7 +179,7 @@ impl City {
         self.owner
     }
 
-    pub fn position(&self) -> MapPosition {
+    pub fn position(&self) -> TilePosition {
         self.position
     }
 
@@ -256,7 +282,7 @@ impl GameWorld {
         self.cities.get(&city_id)
     }
 
-    pub fn new_city(&mut self, owner: CivilizationId, position: MapPosition) -> &mut City {
+    pub fn new_city(&mut self, owner: CivilizationId, position: TilePosition) -> &mut City {
         assert!(self.map.tile(position).city.is_none());
 
         let id = self.next_city_id();
@@ -274,7 +300,7 @@ impl GameWorld {
         self.cities.get_mut(&id).unwrap()
     }
 
-    pub fn new_unit(&mut self, owner: CivilizationId, position: MapPosition, unit_type: UnitType) -> &mut Unit {
+    pub fn new_unit(&mut self, owner: CivilizationId, position: TilePosition, unit_type: UnitType) -> &mut Unit {
         assert!(!self.map.tile(position).units.contains_key(&unit_type));
 
         let id = self.unit_id_generator.next();
@@ -401,7 +427,7 @@ impl GameWorld {
         }
     }
 
-    fn set_unit_position(&mut self, unit_id: UnitId, new_position: MapPosition) {
+    fn set_unit_position(&mut self, unit_id: UnitId, new_position: TilePosition) {
         let mut unit = self.units.get_mut(&unit_id).unwrap();
 
         let old_position = unit.position;

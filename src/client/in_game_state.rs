@@ -14,12 +14,13 @@ use ncollide2d::math::Translation;
 
 use ggez_goodies::scene::SceneSwitch;
 
+use crate::common::TileEdge;
 use crate::common::{
     Connection,
     GameActionType,
     GameEventType,
     GameWorld,
-    MapPosition,
+    TilePosition,
     MessageToClient,
     MessageToServer,
     PlayerId,
@@ -37,14 +38,14 @@ use super::imgui_wrapper::ImGuiFonts;
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
+const VERTICAL_TILE_COUNT: f32 = 8.0;
+const HORIZONTAL_TILE_COUNT: f32 = 5.0;
+
 fn get_tile_image_src_rect(index: usize) -> Rect {
-    let vertical_tile_count = 8.0;
-    let horizontal_tile_count = 5.0;
+    let x = (index as f32) / HORIZONTAL_TILE_COUNT % 1.0;
+    let y = ((index as f32) / HORIZONTAL_TILE_COUNT).floor() / VERTICAL_TILE_COUNT;
 
-    let x = (index as f32) / horizontal_tile_count % 1.0;
-    let y = ((index as f32) / horizontal_tile_count).floor() / vertical_tile_count;
-
-    Rect::new(x, y, 1.0 / horizontal_tile_count, 1.0 / vertical_tile_count)
+    Rect::new(x, y, 1.0 / HORIZONTAL_TILE_COUNT, 1.0 / VERTICAL_TILE_COUNT)
 }
 
 pub struct InGameState {
@@ -114,23 +115,37 @@ impl InGameState {
         dest_point.y > -height
     }
 
-    fn draw_tile_sprite(&self, ctx: &mut Context, pos: MapPosition, sprite_index: usize, color: Option<graphics::Color>) {
+    fn draw(&self, ctx: &mut Context, pos: TilePosition, sprite_index: usize, color: Option<graphics::Color>, rotation: f32) {
         let dest_point = self.offset * get_tile_window_pos(pos);
-        let dest_point = mint::Point2 { x: dest_point.x, y: dest_point.y };
+        let mut dest_point = mint::Point2 { x: dest_point.x, y: dest_point.y };
 
         if !self.in_drawable_bounds(dest_point, TILE_WIDTH, TILE_HEIGHT) {
             return;
         }
 
+        let offset = mint::Point2 { x: 0.5, y: 0.5 };
+        dest_point.x += TILE_WIDTH * offset.x;
+        dest_point.y += TILE_HEIGHT * offset.y;
+
         let mut params = DrawParam::default()
             .src(get_tile_image_src_rect(sprite_index))
-            .dest(dest_point);
+            .dest(dest_point)
+            .offset(offset)
+            .rotation(rotation);
 
         if let Some(color) = color {
             params = params.color(color);
         }
 
         graphics::draw(ctx, &self.tile_sprites, params).unwrap();
+    }
+
+    fn draw_river(&self, ctx: &mut Context, pos: TilePosition, side: TileEdge) {
+        self.draw(ctx, pos, SPRITE_RIVER, None, std::f32::consts::PI * 2.0 * (side.index() as f32) / 6.0);
+    }
+
+    fn draw_tile_sprite(&self, ctx: &mut Context, pos: TilePosition, sprite_index: usize, color: Option<graphics::Color>) {
+        self.draw(ctx, pos, sprite_index, color, 0.0);
     }
 
     fn send_action(&mut self, action: GameActionType) {
@@ -205,6 +220,12 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
         {
             for tile in self.world.map.tiles() {
                 self.draw_tile(ctx, tile);
+            }
+
+            for tile in self.world.map.tiles() {
+                for river in &tile.rivers {
+                    self.draw_river(ctx, tile.position, *river);
+                }
             }
 
             for unit in self.world.units() {

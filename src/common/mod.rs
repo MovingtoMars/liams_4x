@@ -26,7 +26,7 @@ pub use generate_world::*;
 pub use player::*;
 
 pub const SERVER_LISTEN: &str = "0.0.0.0:12351";
-pub const SERVER: &str = "127.0.0.1:12351";
+pub const DEFAULT_SERVER: &str = "127.0.0.1:12351";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageToClient {

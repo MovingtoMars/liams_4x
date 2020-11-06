@@ -24,3 +24,5 @@ pub const SPRITE_SOLDIER_HIGHLIGHT: usize = 8;
 pub const SPRITE_TILE_HIGHLIGHT_BLUE_1: usize = 10;
 pub const SPRITE_TILE_HIGHLIGHT_BLUE_2: usize = 11;
 pub const SPRITE_TILE_HIGHLIGHT_BLUE_3: usize = 12;
+
+pub const SPRITE_RIVER: usize = 13;
