@@ -294,11 +294,7 @@ impl TilePosition {
         }
     }
 
-    pub fn equals(self, p:Self) -> bool{
-        (self.x == p.x) && (self.y == p.y)
-    }
-
-    pub fn len_to(self,p:Self) -> i16 {
+    pub fn distance_to(self, p: Self) -> MapUnit {
         let x_diff=(self.x-p.x).abs();
         let mut y_max=self.y+x_diff/2;
         let mut y_min=self.y-(x_diff+1)/2;
