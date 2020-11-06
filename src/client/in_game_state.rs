@@ -38,10 +38,13 @@ use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
 fn get_tile_image_src_rect(index: usize) -> Rect {
-    let x = (index as f32) * 0.2 % 1.0;
-    let y = ((index as f32) / 5.0).floor() / 5.0;
+    let vertical_tile_count = 8.0;
+    let horizontal_tile_count = 5.0;
 
-    Rect::new(x, y, 0.2, 0.2)
+    let x = (index as f32) / horizontal_tile_count % 1.0;
+    let y = ((index as f32) / horizontal_tile_count).floor() / vertical_tile_count;
+
+    Rect::new(x, y, 1.0 / horizontal_tile_count, 1.0 / vertical_tile_count)
 }
 
 pub struct InGameState {
