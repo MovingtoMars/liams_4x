@@ -1,4 +1,7 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::BinaryHeap;
+use std::cmp::Reverse;
 
 use ggez::Context;
 use ggez::GameResult;
@@ -187,6 +190,55 @@ impl InGameState {
 
     fn can_control_unit(&self, unit: &crate::common::Unit) -> bool {
         self.world.player(self.player_id).unwrap().civilization_id() == unit.owner()
+    }
+    
+    fn shortest_path(&mut self,s:TilePosition, d:TilePosition) -> Option<Vec<TilePosition>> {
+        // Find shortest path
+        let mut open_nodes = BinaryHeap::new();
+        let mut visited_nodes = HashSet::new();
+        let mut came_from = HashMap::new();
+        //let mut fScore = HashMap::new();
+        let mut g_score = HashMap::new();
+
+        let init_d = s.len_to(d);
+        g_score.insert(s,0);
+        //fScore.insert(s,init_d);
+
+        open_nodes.push((Reverse(init_d),s));
+
+        while !open_nodes.is_empty() {
+            let current_node = open_nodes.peek().unwrap().1;
+            if current_node.equals(d) {
+                let mut path = Vec::new();
+                let mut counter = &current_node;
+                while let Some(mp) = came_from.get(counter) {
+                    path.push(*mp);
+                    counter = &mp;
+                }
+                return Some(path);
+            }
+
+            open_nodes.pop();
+            let neigh = current_node.neighbors_at_distance(self.world.map.width(), self.world.map.height(),1, false); // may be different for different units
+            
+            let temp = g_score.get(&current_node).unwrap()+1; // may need to change this when adding hills
+            for (n,_one) in neigh {
+                if let Some(neighg) = g_score.get(&n) {
+                    if temp > *neighg {
+                        continue;
+                    }
+                }
+
+                came_from.insert(n,current_node);
+                g_score.insert(n,temp);
+                //fScore.insert(n,temp+current_node.len_to(d));
+                if !visited_nodes.contains(&n) {
+                    visited_nodes.insert(n);
+                    open_nodes.push((Reverse(temp+n.len_to(d)),n));
+                }
+            }
+        }
+        None
     }
 }
 
@@ -469,6 +521,9 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 } else if let MouseButton::Right = button {
                     if let Some(SelectedObject::Unit(unit_id)) = self.selected {
                         if let Some(HitboxKey::Tile(pos)) = hovered {
+                            let sp = self.shortest_path(self.world.unit(unit_id).unwrap().position(),pos).unwrap();
+                            println!("{:?}", sp);
+
                             let action = GameActionType::MoveUnit { unit_id, position: pos };
                             self.send_action(action);
                         }
