@@ -41,7 +41,6 @@ pub enum MessageToServer {
     Hello { name: String },
     Start,
     Action(GameActionType),
-    NextTurn,
     Quit,
 }
 

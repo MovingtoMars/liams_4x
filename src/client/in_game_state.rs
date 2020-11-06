@@ -269,11 +269,20 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             let func = |ui: &imgui::Ui, fonts: &ImGuiFonts| {
                 let window_padding = ui.clone_style().window_padding;
 
-                imgui::Window::new(im_str!("Overview"))
-                    .position([0.0, 0.0], imgui::Condition::Once)
-                    .size_constraints([200.0, 50.0], [10000000.0, 1000000.0])
-                    .always_auto_resize(true)
+                const LEFT_WINDOW_WIDTH: f32 = 250.0;
+                imgui::Window::new(im_str!("General"))
+                    .size([LEFT_WINDOW_WIDTH, screen_height], imgui::Condition::Always)
+                    .position([0.0, screen_height - screen_height], imgui::Condition::Always)
+                    .collapsible(false)
+                    .movable(false)
+                    .resizable(false)
                     .build(ui, || {
+                        if ui.button(im_str!("Quit"), [LEFT_WINDOW_WIDTH - window_padding[0] * 2.0, 30.0]) {
+                            *quitting = true;
+                        }
+
+                        ui.spacing();
+                        ui.separator();
                         ui.text(format!("FPS: {:.0}", fps));
                         ui.text(format!("World: {}x{}", world.map.width(), world.map.height()));
                         ui.text(if cfg!(debug_assertions) { "Debug mode" } else { "Release mode" });
@@ -282,32 +291,26 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         ui.spacing();
                         ui.text("Players:");
                         for player in world.players() {
-                            let you_str = if player.id() == *you_player_id { "(you)" } else { "" };
-                            ui.text(format!("{} {}", player.name(), you_str));
+                            let you_str = if player.id() == *you_player_id { " (you)" } else { "" };
+                            let ready_str = if player.ready() { " (ready)" } else { "" };
+                            ui.text(format!("{}{}{}", player.name(), you_str, ready_str));
                         }
                         ui.spacing();
                         ui.separator();
                         ui.spacing();
-                        if ui.button(im_str!("Quit"), [200.0 - window_padding[0] / 2.0, 30.0]) {
-                            *quitting = true;
-                        }
-                    });
+                        ui.spacing();
+                        ui.spacing();
+                        ui.spacing();
+                        ui.spacing();
 
-                const TURN_WINDOW_HEIGHT: f32 = 110.0;
-                const TURN_WINDOW_WIDTH: f32 = 250.0;
-                imgui::Window::new(im_str!("Turn"))
-                    .size([TURN_WINDOW_WIDTH, TURN_WINDOW_HEIGHT], imgui::Condition::Always)
-                    .position([0.0, screen_height - TURN_WINDOW_HEIGHT], imgui::Condition::Always)
-                    .collapsible(false)
-                    .movable(false)
-                    .resizable(false)
-                    .build(ui, || {
                         ui.text(format!("Turn {}", world.turn()));
                         let open_sans_semi_bold_30_handle = ui.push_font(fonts.open_sans_semi_bold_30);
-                        let next_turn_clicked = ui.button(im_str!("Next turn"), [TURN_WINDOW_WIDTH - 20.0, 40.0]);
+                        let you_ready = world.player(*you_player_id).unwrap().ready();
+                        let turn_button_label = if you_ready { im_str!("Waiting for players") } else { im_str!("Next turn") };
+                        let next_turn_clicked = ui.button(turn_button_label, [LEFT_WINDOW_WIDTH - window_padding[0] * 2.0, 40.0]);
                         open_sans_semi_bold_30_handle.pop(ui);
                         if next_turn_clicked {
-                            connection.send_message(MessageToServer::NextTurn);
+                            connection.send_message(MessageToServer::Action(GameActionType::SetReady(!you_ready)));
                         }
                     });
 

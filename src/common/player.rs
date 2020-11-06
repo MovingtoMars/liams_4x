@@ -13,6 +13,8 @@ pub struct Player {
     id: PlayerId,
     name: String,
     civilization_id: CivilizationId,
+    // Ready for next turn
+    pub(in crate::common) ready: bool,
 }
 
 impl Player {
@@ -21,7 +23,12 @@ impl Player {
             id,
             name,
             civilization_id,
+            ready: false,
         }
+    }
+
+    pub fn ready(&self) -> bool {
+        self.ready
     }
 
     pub fn id(&self) -> PlayerId {

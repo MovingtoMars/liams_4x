@@ -193,13 +193,7 @@ impl GameServer {
                             break;
                         }
                         MessageToServer::Action(action) => {
-                            let events = self.game_world.process_action(&action);
-                            for event in events {
-                                self.broadcast(MessageToClient::Event(event))
-                            }
-                        }
-                        MessageToServer::NextTurn => {
-                            let events = self.game_world.next_turn();
+                            let events = self.game_world.process_action(&action, self.clients[i].player_id);
                             for event in events {
                                 self.broadcast(MessageToClient::Event(event))
                             }

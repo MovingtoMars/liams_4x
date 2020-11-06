@@ -12,6 +12,7 @@ pub enum GameActionType {
     MoveUnit { unit_id: UnitId, position: MapPosition },
     FoundCity { unit_id: UnitId },
     RenameCity { city_id: CityId, name: String },
+    SetReady(bool),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,6 +22,7 @@ pub enum GameEventType {
     DeleteUnit { unit_id: UnitId },
     FoundCity { position: MapPosition, owner: CivilizationId },
     RenameCity { city_id: CityId, name: String },
+    SetPlayerReady { player_id: PlayerId, ready: bool },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -233,11 +235,6 @@ impl GameWorld {
         self.turn
     }
 
-    pub fn next_turn(&mut self) -> Vec<GameEventType> {
-        self.apply_event(&GameEventType::NextTurn);
-        vec![GameEventType::NextTurn]
-    }
-
     fn next_city_id(&mut self) -> CityId {
         self.next_city_id += 1;
         CityId(self.next_city_id)
@@ -289,7 +286,7 @@ impl GameWorld {
         self.units.get_mut(&id).unwrap()
     }
 
-    pub fn process_action(&mut self, action_type: &GameActionType) -> Vec<GameEventType> {
+    pub fn process_action(&mut self, action_type: &GameActionType, actioner: PlayerId) -> Vec<GameEventType> {
         let mut result = Vec::new();
 
         match action_type {
@@ -321,14 +318,25 @@ impl GameWorld {
                         GameEventType::FoundCity { position: unit.position(), owner: unit.owner() },
                     ];
                     self.apply_events(&events);
-                    return events;
+                    result.extend(events);
                 }
             }
             GameActionType::RenameCity { city_id, name } => {
-                return if self.city(*city_id).is_some() {
-                    vec![GameEventType::RenameCity { city_id: *city_id, name: name.clone() }]
-                } else {
-                    vec![]
+                if self.city(*city_id).is_some() {
+                    let event = GameEventType::RenameCity { city_id: *city_id, name: name.clone() };
+                    self.apply_event(&event);
+                    result.push(event);
+                }
+            }
+            GameActionType::SetReady(ready) => {
+                let event = GameEventType::SetPlayerReady{ player_id: actioner, ready: *ready };
+                self.apply_event(&event);
+                result.push(event);
+
+                if self.players().all(|player| player.ready()) {
+                    let event = GameEventType::NextTurn;
+                    self.apply_event(&event);
+                    result.push(event);
                 }
             }
         }
@@ -341,6 +349,10 @@ impl GameWorld {
             GameEventType::NextTurn => {
                 self.turn += 1;
                 self.on_turn_start();
+
+                for player in self.players.values_mut() {
+                    player.ready = false;
+                }
             }
             GameEventType::MoveUnit { unit_id, position, remaining_movement } => {
                 self.set_unit_position(*unit_id, *position);
@@ -354,6 +366,9 @@ impl GameWorld {
             }
             GameEventType::RenameCity { city_id, name } => {
                 self.cities.get_mut(city_id).unwrap().name = name.clone();
+            }
+            GameEventType::SetPlayerReady { player_id, ready } => {
+                self.players.get_mut(player_id).unwrap().ready = *ready;
             }
         }
     }
