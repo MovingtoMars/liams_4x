@@ -89,7 +89,7 @@ impl LobbyServer {
             }
         }).collect();
 
-        let mut game_world = GameWorld::generate(60, 40, init_players);
+        let mut game_world = GameWorld::generate(init_players);
         game_world.start();
 
         for client in &mut self.clients {
