@@ -68,9 +68,13 @@ impl GameWorld {
         for i in 0..world.civilizations().count() {
             let civilization_id = world.civilizations().nth(i).unwrap().id();
 
-            let x = world.map.width() / (world.civilizations().count() as MapUnit + 1) * (i as MapUnit + 1);
-            let y = world.map.height() / 2;
-            let position = TilePosition { x, y };
+            let x = world.map.width() as f32 / (world.civilizations().count() as f32 + 1.0) * (i as f32 + 1.0);
+            let y = if i % 2 == 0 {
+                world.map.height() as f32 / 3.0
+            } else {
+                world.map.height() as f32 / 3.0 * 2.0
+            };
+            let position = TilePosition { x: x as MapUnit, y: y as MapUnit };
 
             if !world.map.tile(position).resideable() {
                 world.map.tile_mut(position).tile_type = TileType::Plains;
