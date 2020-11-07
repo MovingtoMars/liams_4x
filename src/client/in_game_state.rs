@@ -32,6 +32,7 @@ use crate::common::{
 use super::InputEvent;
 use super::SharedData;
 use super::constants::*;
+use super::crash_state::CrashState;
 use super::drag::Drag;
 use super::hitbox::{Hitbox, HitboxKey, get_hovered_object};
 use super::imgui_wrapper::ImGuiFonts;
@@ -60,6 +61,7 @@ pub struct InGameState {
     drawable_window_size: (f32, f32),
     player_id: PlayerId,
     quitting: bool,
+    crash: Option<String>,
 }
 
 impl InGameState {
@@ -68,18 +70,13 @@ impl InGameState {
         for tile in world.map.tiles() {
             hitboxes.insert(
                 HitboxKey::Tile(tile.position),
-                Hitbox::tile(get_tile_window_pos(tile.position)),
+                Hitbox::tile(tile.position),
             );
         }
         for unit in world.units() {
-            let window_pos = get_tile_window_pos(unit.position());
-            let hitbox = match unit.unit_type() {
-                UnitType::Civilian => Hitbox::civilian(window_pos),
-                UnitType::Soldier => Hitbox::soldier(window_pos),
-            };
             hitboxes.insert(
                 HitboxKey::Unit(unit.id()),
-                hitbox,
+                Hitbox::unit(unit.position(), unit.unit_type()),
             );
         }
 
@@ -94,6 +91,7 @@ impl InGameState {
             drawable_window_size: (0.0, 0.0),
             player_id,
             quitting: false,
+            crash: None,
         };
         Ok(s)
     }
@@ -181,6 +179,15 @@ impl InGameState {
                 let city_name = self.world.city(city_id).unwrap().name();
                 self.selected = Some(SelectedObject::City(city_id, ImString::new(city_name)));
             }
+            GameEventType::NewUnit { ref template, position, unit_id, .. } => {
+                self.hitboxes.insert(
+                    HitboxKey::Unit(unit_id),
+                    Hitbox::unit(position, template.unit_type),
+                );
+            }
+            GameEventType::Crash { ref message } => {
+                self.crash = Some(message.clone());
+            }
             _ => {}
         }
     }
@@ -192,6 +199,10 @@ impl InGameState {
 
 impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
     fn update(&mut self, _shared_data: &mut SharedData, _ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
+        if let Some(message) = self.crash.take() {
+            return SceneSwitch::Replace(Box::new(CrashState::new(message)));
+        }
+
         if self.quitting {
             self.on_quit();
             return SceneSwitch::Pop;
@@ -360,7 +371,8 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                                 SelectedObject::Unit(unit_id) => {
                                     let unit = world.unit(*unit_id).unwrap();
                                     let owner_name = world.civilization(unit.owner()).unwrap().player_name();
-                                    ui.text(format!("{} at {}", unit.unit_type(), unit.position()));
+                                    ui.text(format!("{} at {}", unit.name(), unit.position()));
+                                    ui.text(format!("Type: {}", unit.unit_type()));
                                     ui.text(format!("Owner: {}", owner_name));
                                     ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
                                     ui.spacing();
@@ -396,6 +408,34 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                                     if city_name_changed {
                                         let action = GameActionType::RenameCity { city_id: *city_id, name: city_name_buf.to_string() };
                                         connection.send_message(MessageToServer::Action(action));
+                                    }
+
+                                    ui.spacing();
+                                    ui.separator();
+                                    ui.spacing();
+                                    if let Some((producing_unit, producing_progress)) = city.producing() {
+                                        ui.text(format!("Production: {}", producing_unit.name));
+                                        let production_remaining = producing_unit.production_cost - producing_progress;
+                                        ui.text(format!(
+                                            "{}/{}, {:.0} turns remaining",
+                                            producing_progress,
+                                            producing_unit.production_cost,
+                                            (production_remaining as f32 / city.production() as f32).ceil(),
+                                        ));
+                                    } else {
+                                        ui.text("Production: None");
+                                    }
+                                    ui.spacing();
+                                    ui.separator();
+                                    ui.spacing();
+                                    ui.text(im_str!("Production List"));
+                                    for unit_template in world.unit_template_manager().all() {
+                                        let label = format!("{}: {}", unit_template.name, unit_template.production_cost);
+                                        let chose = ui.button(&ImString::new(label), sidebar_button_size);
+                                        if chose {
+                                            let action = GameActionType::SetProducing { city_id: *city_id, producing: Some(unit_template.clone()) };
+                                            connection.send_message(MessageToServer::Action(action));
+                                        }
                                     }
                                 }
                             }

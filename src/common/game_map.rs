@@ -17,6 +17,8 @@ pub enum GameActionType {
     FoundCity { unit_id: UnitId },
     RenameCity { city_id: CityId, name: String },
     SetReady(bool),
+    // TODO use UnitTemplateId
+    SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -27,6 +29,9 @@ pub enum GameEventType {
     FoundCity { position: TilePosition, owner: CivilizationId },
     RenameCity { city_id: CityId, name: String },
     SetPlayerReady { player_id: PlayerId, ready: bool },
+    SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
+    NewUnit { template: UnitTemplate, owner: CivilizationId, position: TilePosition, unit_id: UnitId },
+    Crash { message: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -58,11 +63,15 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub fn units_can_reside(&self) -> bool {
+    pub fn resideable(&self) -> bool {
         match self.tile_type {
             TileType::Plains => true,
             _ => false,
         }
+    }
+
+    pub fn unit_can_reside(&self, unit_type: &UnitType) -> bool {
+        self.resideable() && !self.units.contains_key(unit_type)
     }
 }
 
@@ -172,7 +181,7 @@ impl GameMap {
 
             open_nodes.pop();
             let neigh = current_node.neighbors_at_distance(self.width(), self.height(),2,false); // may be different for different units
-            
+
             for (n,_one) in neigh {
                 let temp = g_score.get(&current_node).unwrap()+1; // may need to change this when adding hills
                 if let Some(neighg) = g_score.get(&n) {
@@ -217,6 +226,10 @@ pub struct City {
     owner: CivilizationId,
     position: TilePosition,
     name: String,
+    production: i16,
+
+    // unit being produced and the amount of production put into it
+    producing: Option<(UnitTemplate, i16)>,
 }
 
 impl City {
@@ -237,7 +250,17 @@ impl City {
     }
 
     fn on_turn_start(&mut self) {
+        if let Some((_, ref mut spent)) = &mut self.producing {
+            *spent += self.production;
+        }
+    }
 
+    pub fn production(&self) -> i16 {
+        self.production
+    }
+
+    pub fn producing(&self) -> &Option<(UnitTemplate, i16)> {
+        &self.producing
     }
 }
 
@@ -256,6 +279,8 @@ pub struct GameWorld {
     unit_id_generator: UnitIdGenerator,
     city_name_generator: CityNameGenerator,
     civilization_id_generator: CivilizationIdGenerator,
+
+    unit_template_manager: UnitTemplateManager,
 }
 
 impl GameWorld {
@@ -267,10 +292,11 @@ impl GameWorld {
             cities: BTreeMap::new(),
             civilizations: BTreeMap::new(),
             next_city_id: 0,
-            turn: 1,
+            turn: 0,
             unit_id_generator: UnitIdGenerator::new(),
             city_name_generator: CityNameGenerator::new(),
             civilization_id_generator: CivilizationIdGenerator::new(),
+            unit_template_manager: UnitTemplateManager::new(),
         };
 
         for init_player in init_players {
@@ -278,6 +304,18 @@ impl GameWorld {
         }
 
         game
+    }
+
+    pub fn start(&mut self) {
+        if self.turn != 0 {
+            panic!("Can only start game when turn is 0");
+        }
+        self.turn += 1;
+        self.on_turn_start();
+    }
+
+    pub fn unit_template_manager(&self) -> &UnitTemplateManager {
+        &self.unit_template_manager
     }
 
     fn new_civilization(&mut self, init_player: InitPlayer) {
@@ -340,6 +378,8 @@ impl GameWorld {
             owner,
             name: self.city_name_generator.next(),
             id,
+            production: 5,
+            producing: None,
         };
 
         city.on_turn_start();
@@ -349,16 +389,69 @@ impl GameWorld {
         self.cities.get_mut(&id).unwrap()
     }
 
-    pub fn new_unit(&mut self, owner: CivilizationId, position: TilePosition, unit_type: UnitType) -> &mut Unit {
-        assert!(!self.map.tile(position).units.contains_key(&unit_type));
+    pub(in crate::common) fn next_unit_id(&mut self) -> UnitId {
+        self.unit_id_generator.next()
+    }
 
-        let id = self.unit_id_generator.next();
-        let unit = Unit::new(id, owner, position, unit_type);
+    pub fn new_unit(&mut self, id: UnitId, template: &UnitTemplate, owner: CivilizationId, position: TilePosition) -> &mut Unit {
+        assert!(!self.map.tile(position).units.contains_key(&template.unit_type));
 
-        self.map.tile_mut(position).units.insert(unit_type, id);
+        let mut unit = Unit::new(template, id, owner, position);
+        unit.on_turn_start();
+
+        self.map.tile_mut(position).units.insert(template.unit_type, id);
 
         self.units.insert(id, unit);
         self.units.get_mut(&id).unwrap()
+    }
+
+    fn next_turn(&mut self) -> Vec<GameEventType> {
+        let mut result = vec![];
+        let event = GameEventType::NextTurn;
+        self.apply_event(&event);
+        result.push(event);
+
+        let city_keys = self.cities.keys().map(|k| *k).collect::<Vec<_>>();
+        for city_id in city_keys {
+            let finished_unit = {
+                let city = self.cities.get(&city_id).unwrap();
+
+                if let Some((unit, ref spent)) = &city.producing {
+                    if *spent > unit.production_cost {
+                        Some(city.producing.clone().unwrap().0)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
+
+            if let Some(template) = finished_unit {
+                let city = self.cities.get(&city_id).unwrap();
+
+                let mut positions_to_try = vec![city.position];
+                positions_to_try.extend(city.position.direct_neighbors(self.map.width, self.map.height));
+
+                let position = positions_to_try.into_iter()
+                    .find(|pos| self.map.tile(*pos).unit_can_reside(&template.unit_type));
+
+                if let Some(position) = position {
+                    let owner = city.owner;
+                    let unit_id = self.next_unit_id();
+                    let event = GameEventType::NewUnit { unit_id, template, owner, position };
+                    self.apply_event(&event);
+                    result.push(event);
+                    let event = GameEventType::SetProducing { city_id, producing: None };
+                    self.apply_event(&event);
+                    result.push(event);
+                } else {
+                    let message = "Couldn't find an empty space beside city.";
+                    result.push(GameEventType::Crash { message: message.into() });
+                }
+            }
+        }
+        result
     }
 
     pub fn process_action(&mut self, action_type: &GameActionType, actioner_id: PlayerId) -> Vec<GameEventType> {
@@ -369,13 +462,12 @@ impl GameWorld {
                 let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return vec![] };
                 if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
 
-                let target_tile_unoccupied = !self.map.tile(*position).units.contains_key(&unit.unit_type());
-                let target_tile_moveable = self.map.tile(*position).units_can_reside();
+                let target_tile_moveable = self.map.tile(*position).unit_can_reside(&unit.unit_type());
                 let neighbor_map = unit.position().neighbors_at_distance(self.map.width, self.map.height, unit.remaining_movement(), true);
                 let distance = neighbor_map.get(position);
                 let target_tile_in_range = distance.is_some();
 
-                if target_tile_unoccupied && target_tile_moveable && target_tile_in_range {
+                if target_tile_moveable && target_tile_in_range {
                     let event = GameEventType::MoveUnit {
                         unit_id: *unit_id,
                         position: *position,
@@ -414,10 +506,16 @@ impl GameWorld {
                 result.push(event);
 
                 if self.players().all(|player| player.ready()) {
-                    let event = GameEventType::NextTurn;
-                    self.apply_event(&event);
-                    result.push(event);
+                    result.extend(self.next_turn());
                 }
+            }
+            GameActionType::SetProducing { city_id, producing } => {
+                let city = if let Some(city) = self.city(*city_id) { city } else { return vec![] };
+                if self.player(actioner_id).unwrap().civilization_id() != city.owner() { return vec![] };
+
+                let event = GameEventType::SetProducing { city_id: *city_id, producing: producing.clone() };
+                self.apply_event(&event);
+                result.push(event);
             }
         }
 
@@ -449,6 +547,15 @@ impl GameWorld {
             }
             GameEventType::SetPlayerReady { player_id, ready } => {
                 self.players.get_mut(player_id).unwrap().ready = *ready;
+            }
+            GameEventType::SetProducing { city_id, producing } => {
+                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|unit| Some((unit, 0)));
+            }
+            GameEventType::NewUnit { template, owner, position, unit_id } => {
+                self.new_unit(*unit_id, &template, *owner, *position);
+            }
+            GameEventType::Crash { .. } => {
+                // We expect the client to handle this.
             }
         }
     }

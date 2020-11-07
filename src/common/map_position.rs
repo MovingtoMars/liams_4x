@@ -185,6 +185,10 @@ impl TilePosition {
         result
     }
 
+    pub fn direct_neighbors(self, map_width: MapUnit, map_height: MapUnit) -> Vec<Self> {
+        self.neighbors_at_distance(map_width, map_height, 1, false).into_iter().map(|(pos, _)| pos).collect()
+    }
+
     pub fn neighbors_at_distance(
         self,
         map_width: MapUnit,

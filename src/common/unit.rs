@@ -19,28 +19,83 @@ impl UnitIdGenerator {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum UnitAbility {
+    Settle,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UnitTemplate {
+    pub unit_type: UnitType,
+    pub name: String,
+    pub movement: MapUnit,
+    pub abilities: Vec<UnitAbility>,
+    pub production_cost: i16,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UnitTemplateManager {
+    pub settler: UnitTemplate,
+    pub warrior: UnitTemplate,
+}
+
+impl UnitTemplateManager {
+    pub fn new() -> Self {
+        Self {
+            settler: UnitTemplate {
+                unit_type: UnitType::Civilian,
+                name: "Settler".into(),
+                movement: 2,
+                abilities: vec![UnitAbility::Settle],
+                production_cost: 30,
+            },
+            warrior: UnitTemplate {
+                unit_type: UnitType::Soldier,
+                name: "Warrior".into(),
+                movement: 2,
+                abilities: vec![],
+                production_cost: 21,
+            },
+        }
+    }
+
+    pub fn all(&self) -> Vec<&UnitTemplate> {
+        vec![
+            &self.settler,
+            &self.warrior,
+        ]
+    }
+}
+
 // Should this be split into Soldier and Civilian? :/
 // Or a Unit trait with Soldier/Civilian impls.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Unit {
     id: UnitId,
+    name: String,
     owner: CivilizationId,
     unit_type: UnitType,
+    total_movement: MapUnit,
     pub(in crate::common) position: TilePosition,
     pub(in crate::common) remaining_movement: MapUnit,
 }
 
 impl Unit {
-    pub fn new(id: UnitId, owner: CivilizationId, position: TilePosition, unit_type: UnitType) -> Self {
-        let mut ret = Self {
+    pub fn new(template: &UnitTemplate, id: UnitId, owner: CivilizationId, position: TilePosition) -> Self {
+        Self {
             id,
             owner,
-            unit_type,
+            unit_type: template.unit_type,
             position,
+            total_movement: template.movement,
+            name: template.name.clone(),
+
             remaining_movement: 0,
-        };
-        ret.on_turn_start();
-        ret
+        }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn owner(&self) -> CivilizationId {
@@ -64,7 +119,7 @@ impl Unit {
     }
 
     pub fn total_movement(&self) -> MapUnit {
-        2
+        self.total_movement
     }
 
     pub fn remaining_movement(&self) -> MapUnit {

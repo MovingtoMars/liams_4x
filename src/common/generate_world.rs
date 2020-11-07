@@ -30,16 +30,20 @@ impl GameWorld {
                 world.map.tile_mut(position).tile_type = tile_type;
 
                 if let (2, 2) = (x, y) {
-                    world.new_unit(civ1, position, UnitType::Civilian);
+                    let id = world.next_unit_id();
+                    world.new_unit(id, &world.unit_template_manager().settler.clone(), civ1, position);
                 }
 
                 if let (3, 3) = (x, y) {
-                    world.new_unit(civ1, position, UnitType::Soldier);
+                    let id = world.next_unit_id();
+                    world.new_unit(id, &world.unit_template_manager().warrior.clone(), civ1, position);
                 }
 
                 if let (2, 3) = (x, y) {
-                    world.new_unit(civ1, position, UnitType::Civilian);
-                    world.new_unit(civ1, position, UnitType::Soldier);
+                    let id = world.next_unit_id();
+                    world.new_unit(id, &world.unit_template_manager().settler.clone(), civ1, position);
+                    let id = world.next_unit_id();
+                    world.new_unit(id, &world.unit_template_manager().warrior.clone(), civ1, position);
                 }
 
                 if let (4, 4) = (x, y) {

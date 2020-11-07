@@ -8,6 +8,7 @@ mod in_game_state;
 mod main_menu_state;
 mod lobby_state;
 mod input_server_addr_state;
+mod crash_state;
 
 use ggez::conf;
 use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};

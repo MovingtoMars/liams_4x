@@ -8,6 +8,7 @@ use crate::client::constants::*;
 use crate::common::TilePosition;
 use crate::common::UnitId;
 use crate::client::utils::get_tile_window_pos;
+use crate::common::UnitType;
 
 pub struct Hitbox {
     pub shape: Box<dyn Shape<f32>>,
@@ -21,7 +22,8 @@ impl Hitbox {
         self.isometry = Isometry::new(Vector::new(render_pos.x + TILE_WIDTH / 2.0, render_pos.y + TILE_HEIGHT / 2.0), 0.0);
     }
 
-    pub fn tile(pos: Point<f32>) -> Self {
+    pub fn tile(pos: TilePosition) -> Self {
+        let pos = get_tile_window_pos(pos);
         let points = &[
             Point::new(-0.5 * TILE_INNER_SMALL_WIDTH,  0.5 * TILE_INNER_HEIGHT),
             Point::new( 0.5 * TILE_INNER_SMALL_WIDTH,  0.5 * TILE_INNER_HEIGHT),
@@ -39,7 +41,14 @@ impl Hitbox {
         }
     }
 
-    pub fn civilian(pos: Point<f32>) -> Self {
+    pub fn unit(pos: TilePosition, unit_type: UnitType) -> Self {
+        match unit_type {
+            UnitType::Civilian => Self::civilian(get_tile_window_pos(pos)),
+            UnitType::Soldier => Self::soldier(get_tile_window_pos(pos)),
+        }
+    }
+
+    fn civilian(pos: Point<f32>) -> Self {
         let points = &[
             Point::new(-UNIT_SHORT_WIDTH,  0.5 * UNIT_HEIGHT),
             Point::new( 0.0,               0.5 * UNIT_HEIGHT),
@@ -56,7 +65,7 @@ impl Hitbox {
         }
     }
 
-    pub fn soldier(pos: Point<f32>) -> Self {
+    fn soldier(pos: Point<f32>) -> Self {
         let points = &[
             Point::new(0.0,               0.5 * UNIT_HEIGHT),
 
