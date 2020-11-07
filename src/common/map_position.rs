@@ -17,6 +17,15 @@ pub enum TileEdge {
 }
 
 impl TileEdge {
+    const ALL: &'static [Self] = &[
+        Self::TopLeft,
+        Self::Top,
+        Self::TopRight,
+        Self::BottomRight,
+        Self::Bottom,
+        Self::BottomLeft,
+    ];
+
     pub fn clockwise(self) -> Self {
         use TileEdge::*;
         match self {
@@ -82,9 +91,9 @@ impl CanonicalTileEdge {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct EdgePosition(pub TilePosition, pub CanonicalTileEdge);
+pub struct CanonicalEdgePosition(pub TilePosition, pub CanonicalTileEdge);
 
-impl EdgePosition {
+impl CanonicalEdgePosition {
     pub fn boundary_tile_and_edges(self) -> [(TilePosition, TileEdge); 2] {
         use TileEdge::*;
         let Self(tile, edge) = self;
@@ -142,6 +151,9 @@ impl EdgePosition {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EdgePosition(pub TilePosition, pub TileEdge);
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TilePosition {
     pub x: MapUnit,
     pub y: MapUnit,
@@ -164,6 +176,20 @@ impl TilePosition {
 
     pub fn y_even(self) -> bool {
         self.y % 2 == 0
+    }
+
+    pub fn borders(tiles: &[TilePosition]) -> Vec<EdgePosition> {
+        let mut result = vec![];
+
+        for &tile in tiles {
+            for &edge in TileEdge::ALL {
+                if !tiles.contains(&tile.neighbor(edge)) {
+                    result.push(EdgePosition(tile, edge));
+                }
+            }
+        }
+
+        result
     }
 
     fn neighbors_for_positions(

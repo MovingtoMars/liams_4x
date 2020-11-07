@@ -14,7 +14,6 @@ use ncollide2d::math::Translation;
 
 use ggez_goodies::scene::SceneSwitch;
 
-use crate::common::TileEdge;
 use crate::common::{
     Connection,
     GameActionType,
@@ -27,6 +26,8 @@ use crate::common::{
     Tile,
     TileType,
     UnitType,
+    CivilizationId,
+    TileEdge,
 };
 
 use super::InputEvent;
@@ -142,6 +143,12 @@ impl InGameState {
         self.draw(ctx, pos, SPRITE_RIVER, None, std::f32::consts::PI * 2.0 * (side.index() as f32) / 6.0);
     }
 
+    fn draw_border(&self, ctx: &mut Context, pos: TilePosition, side: TileEdge, id: CivilizationId) {
+        let [x, y, z] = self.world.civilization(id).unwrap().color().percents();
+        let color = graphics::Color::new(x, y, z, 1.0);
+        self.draw(ctx, pos, SPRITE_BORDER, Some(color), std::f32::consts::PI * 2.0 * (side.index() as f32) / 6.0);
+    }
+
     fn draw_tile_sprite(&self, ctx: &mut Context, pos: TilePosition, sprite_index: usize, color: Option<graphics::Color>) {
         self.draw(ctx, pos, sprite_index, color, 0.0);
     }
@@ -236,6 +243,12 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             for tile in self.world.map.tiles() {
                 for river in &tile.rivers {
                     self.draw_river(ctx, tile.position, *river);
+                }
+            }
+
+            for city in self.world.cities() {
+                for border in city.borders() {
+                    self.draw_border(ctx, border.0, border.1, city.owner())
                 }
             }
 

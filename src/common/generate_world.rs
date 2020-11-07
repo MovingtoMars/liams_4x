@@ -11,13 +11,13 @@ fn map_size(num_players: usize) -> (MapUnit, MapUnit) {
 
 impl GameWorld {
     fn generate_river(&mut self, start_position: TilePosition) {
-        let mut river_current = EdgePosition(start_position, CanonicalTileEdge::Top);
+        let mut river_current = CanonicalEdgePosition(start_position, CanonicalTileEdge::Top);
 
         let direction_fns = &[
-            EdgePosition::top_left,
-            EdgePosition::top_right,
-            EdgePosition::bottom_left,
-            EdgePosition::bottom_right,
+            CanonicalEdgePosition::top_left,
+            CanonicalEdgePosition::top_right,
+            CanonicalEdgePosition::bottom_left,
+            CanonicalEdgePosition::bottom_right,
         ];
         let direction_fn = direction_fns[rand::random::<usize>() % direction_fns.len()];
 

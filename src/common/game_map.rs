@@ -145,7 +145,7 @@ impl GameMap {
             })
     }
 
-    pub fn add_river(&mut self, pos: EdgePosition) -> bool {
+    pub fn add_river(&mut self, pos: CanonicalEdgePosition) -> bool {
         let mut modified = false;
         for (tile, edge) in &pos.boundary_tile_and_edges() {
             if self.has_tile(*tile) {
@@ -230,6 +230,10 @@ pub struct City {
 
     // unit being produced and the amount of production put into it
     producing: Option<(UnitTemplate, i16)>,
+
+    territory: Vec<TilePosition>,
+    // Generated from territory and cached for perf
+    borders: Vec<EdgePosition>,
 }
 
 impl City {
@@ -261,6 +265,18 @@ impl City {
 
     pub fn producing(&self) -> &Option<(UnitTemplate, i16)> {
         &self.producing
+    }
+
+    pub fn territory(&self) -> &[TilePosition] {
+        &self.territory
+    }
+
+    fn update_borders_from_territory(&mut self) {
+        self.borders = TilePosition::borders(&self.territory);
+    }
+
+    pub fn borders(&self) -> &[EdgePosition] {
+        &self.borders
     }
 }
 
@@ -372,6 +388,12 @@ impl GameWorld {
     pub fn new_city(&mut self, owner: CivilizationId, position: TilePosition) -> &mut City {
         assert!(self.map.tile(position).city.is_none());
 
+        let territory = position
+            .neighbors_at_distance(self.map.width(), self.map.height(), 1, true)
+            .into_iter()
+            .map(|(pos, _)| pos)
+            .collect();
+
         let id = self.next_city_id();
         let mut city = City {
             position,
@@ -380,7 +402,10 @@ impl GameWorld {
             id,
             production: 5,
             producing: None,
+            territory,
+            borders: vec![],
         };
+        city.update_borders_from_territory();
 
         city.on_turn_start();
 
