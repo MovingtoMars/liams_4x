@@ -81,10 +81,23 @@ impl InGameState {
             );
         }
 
+        let offset = {
+            // Center the camera on the first init we own
+            let my_civ = world.player(player_id).unwrap().civilization_id();
+            let my_position = world.units().find(|unit| unit.owner() == my_civ).unwrap().position();
+
+            let window_pos = get_tile_window_pos(my_position);
+            let draw_size = graphics::drawable_size(ctx);
+            Translation::new(
+                -window_pos.x + draw_size.0 / 2.0 - TILE_WIDTH / 2.0,
+                -window_pos.y + draw_size.1 / 2.0 - TILE_HEIGHT / 2.0,
+            )
+        };
+
         let s = InGameState {
             tile_sprites: Image::new(ctx, "/sprites/tiles.png").unwrap(),
             world,
-            offset: Translation::new(0.0, 0.0),
+            offset,
             current_drag: None,
             selected: None,
             hitboxes,
