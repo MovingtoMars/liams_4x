@@ -10,6 +10,8 @@ pub const UNIT_SHORT_WIDTH: f32 = 30.0;
 pub const UNIT_WIDTH: f32 = 60.0;
 pub const UNIT_HEIGHT: f32 = 106.0;
 
+// Tile spritesheet
+
 pub const _SPRITE_TILE_BLANK: usize = 0;
 pub const SPRITE_TILE_PLAINS: usize = 1;
 pub const SPRITE_TILE_OCEAN: usize = 2;
@@ -28,3 +30,14 @@ pub const SPRITE_TILE_HIGHLIGHT_BLUE_3: usize = 12;
 pub const SPRITE_RIVER: usize = 13;
 
 pub const SPRITE_BORDER: usize = 14;
+
+pub const SPRITE_RESOURCE_SHEEP: usize = 20;
+pub const SPRITE_RESOURCE_HORSES: usize = 21;
+
+// Yield spritesheet
+pub const YIELD_ICON_WIDTH: f32 = 16.0;
+pub const YIELD_ICON_HEIGHT: f32 = 16.0;
+
+pub const SPRITE_YIELD_FOOD: usize = 0;
+pub const SPRITE_YIELD_PRODUCTION: usize = 1;
+pub const SPRITE_YIELD_SCIENCE: usize = 2;

@@ -36,47 +36,6 @@ pub enum GameEventType {
     SetSleeping { unit_id: UnitId, sleeping: bool },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum TileType {
-    Plains,
-    Mountain,
-    Ocean,
-}
-
-impl std::fmt::Display for TileType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match *self {
-            TileType::Plains => "Plains",
-            TileType::Mountain => "Mountain",
-            TileType::Ocean => "Ocean",
-        })
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Tile {
-    pub position: TilePosition,
-    pub tile_type: TileType,
-
-    pub units: BTreeMap<UnitType, UnitId>,
-    pub city: Option<CityId>,
-
-    pub rivers: BTreeSet<TileEdge>,
-}
-
-impl Tile {
-    pub fn resideable(&self) -> bool {
-        match self.tile_type {
-            TileType::Plains => true,
-            _ => false,
-        }
-    }
-
-    pub fn unit_can_reside(&self, unit_type: &UnitType) -> bool {
-        self.resideable() && !self.units.contains_key(unit_type)
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameMap {
     // Number of tiles
@@ -99,6 +58,7 @@ impl GameMap {
                     units: BTreeMap::new(),
                     rivers: BTreeSet::new(),
                     city: None,
+                    resource: None,
                 });
             }
             tile_cols.push(tile_col);

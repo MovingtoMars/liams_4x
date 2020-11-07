@@ -5,6 +5,8 @@ mod civilization;
 mod unit;
 mod generate_world;
 mod player;
+mod resource;
+mod tile;
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -24,6 +26,8 @@ pub use civilization::*;
 pub use unit::*;
 pub use generate_world::*;
 pub use player::*;
+pub use resource::*;
+pub use tile::*;
 
 pub const SERVER_LISTEN: &str = "0.0.0.0:12351";
 pub const DEFAULT_SERVER: &str = "127.0.0.1:12351";

@@ -28,6 +28,8 @@ use crate::common::{
     UnitType,
     CivilizationId,
     TileEdge,
+    ResourceType,
+    Yields,
 };
 
 use super::InputEvent;
@@ -40,18 +42,24 @@ use super::imgui_wrapper::ImGuiFonts;
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
-const VERTICAL_TILE_COUNT: f32 = 8.0;
-const HORIZONTAL_TILE_COUNT: f32 = 5.0;
-
 fn get_tile_image_src_rect(index: usize) -> Rect {
-    let x = (index as f32) / HORIZONTAL_TILE_COUNT % 1.0;
-    let y = ((index as f32) / HORIZONTAL_TILE_COUNT).floor() / VERTICAL_TILE_COUNT;
+    get_image_src_rect(index, 5, 8)
+}
 
-    Rect::new(x, y, 1.0 / HORIZONTAL_TILE_COUNT, 1.0 / VERTICAL_TILE_COUNT)
+fn get_yield_image_src_rect(index: usize) -> Rect {
+    get_image_src_rect(index, 5, 5)
+}
+
+fn get_image_src_rect(index: usize, x_count: usize, y_count: usize) -> Rect {
+    let x = (index as f32) / x_count as f32 % 1.0;
+    let y = ((index as f32) / x_count as f32).floor() / y_count as f32;
+
+    Rect::new(x, y, 1.0 / x_count as f32, 1.0 / y_count as f32)
 }
 
 pub struct InGameState {
     tile_sprites: Image,
+    yield_sprites: Image,
     world: GameWorld,
     offset: Translation<f32>,
     current_drag: Option<Drag>,
@@ -96,6 +104,7 @@ impl InGameState {
 
         let s = InGameState {
             tile_sprites: Image::new(ctx, "/sprites/tiles.png").unwrap(),
+            yield_sprites: Image::new(ctx, "/sprites/yields.png").unwrap(),
             world,
             offset,
             current_drag: None,
@@ -118,6 +127,16 @@ impl InGameState {
         };
 
         self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
+
+        if let Some(resource) = tile.resource {
+            use ResourceType::*;
+            let sprite_index = match resource {
+                Sheep => SPRITE_RESOURCE_SHEEP,
+                Horses => SPRITE_RESOURCE_HORSES,
+            };
+
+            self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
+        }
     }
 
     fn in_drawable_bounds(&self, dest_point: mint::Point2<f32>, width: f32, height: f32) -> bool {
@@ -150,6 +169,76 @@ impl InGameState {
         }
 
         graphics::draw(ctx, &self.tile_sprites, params).unwrap();
+    }
+
+    fn draw_yields(&self, ctx: &mut Context, pos: TilePosition, yields: Yields) {
+        let dest_center = self.offset * get_tile_window_pos(pos);
+        let dest_center = mint::Point2 {
+            x: dest_center.x + TILE_WIDTH * 0.5,
+            y: dest_center.y + TILE_HEIGHT * 0.70,
+        };
+
+        if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
+            return;
+        }
+
+        let intra_padding: f32 = 2.0;
+        let inter_padding: f32 = 5.0;
+
+        let yields_width_for_type = |num| {
+            match num {
+                0 => 0.0,
+                1 | 2 => YIELD_ICON_WIDTH,
+                3 | 4 => YIELD_ICON_WIDTH * 2.0 + intra_padding,
+                _ => panic!("yield too big to render"),
+            }
+        };
+
+        let mut total_width = 0.0;
+        let mut yield_calc = vec![];
+        let yield_types = &[
+            (SPRITE_YIELD_FOOD, yields.food),
+            (SPRITE_YIELD_PRODUCTION, yields.production),
+            (SPRITE_YIELD_SCIENCE, yields.science),
+        ];
+        for &(sprite_index, yield_value) in yield_types {
+            if yield_value > 0 {
+                let width = yields_width_for_type(yield_value);
+                yield_calc.push((sprite_index, yield_value, total_width, width));
+                total_width += width + inter_padding;
+            }
+        }
+
+        for (sprite_index, num, x_start_offset, yield_width) in yield_calc {
+            let src = get_yield_image_src_rect(sprite_index);
+
+            for i in 0..num {
+                let offset = mint::Point2 { x: 0.5, y: 0.5 };
+
+                let extra_y = match (num, i) {
+                    (1, 0) => 0.0,
+                    (2, 0) | (3, 0) | (4, 0) | (4, 1)=> -(YIELD_ICON_HEIGHT + intra_padding) / 2.0,
+                    (2, 1) | (3, 1) | (3, 2) | (4, 2) | (4, 3) => (YIELD_ICON_HEIGHT + intra_padding) / 2.0,
+                    _ => unreachable!(),
+                };
+
+                let extra_x = match (num, i) {
+                    (1, 0) => 0.0,
+                    (2, _) => 0.0,
+                    (3, 0) => yield_width / 4.0,
+                    _ => (i as f32 % 2.0) * (YIELD_ICON_WIDTH + intra_padding),
+                };
+
+                let dest = mint::Point2 {
+                    x: dest_center.x - total_width / 2.0 + YIELD_ICON_WIDTH * offset.x + x_start_offset + extra_x,
+                    y: dest_center.y + YIELD_ICON_WIDTH * offset.y + extra_y,
+                };
+
+                let params = DrawParam::default().dest(dest).src(src).offset(offset);
+
+                graphics::draw(ctx, &self.yield_sprites, params).unwrap();
+            }
+        }
     }
 
     fn draw_river(&self, ctx: &mut Context, pos: TilePosition, side: TileEdge) {
@@ -318,6 +407,10 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         }
                     }
                 }
+            }
+
+            for tile in self.world.map.tiles() {
+                self.draw_yields(ctx, tile.position, tile.yields());
             }
         }
 

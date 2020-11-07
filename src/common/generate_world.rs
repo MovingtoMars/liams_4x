@@ -61,7 +61,11 @@ impl GameWorld {
                 let position = TilePosition { x, y };
                 world.map.tile_mut(position).tile_type = tile_type;
 
-
+                let supported_resources = tile_type.supported_resources();
+                if supported_resources.len() > 0 && rand::random::<f32>() > 0.6 {
+                    let resource = supported_resources[rand::random::<usize>() % supported_resources.len()];
+                    world.map.tile_mut(position).resource = Some(resource);
+                }
             }
         }
 
