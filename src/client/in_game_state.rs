@@ -329,6 +329,8 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
             let Self { player_id: you_player_id, world, selected, ref offset, connection, quitting, .. } = self;
 
+            let you_civ_id = world.player(*you_player_id).unwrap().civilization_id();
+
             let fps = ggez::timer::fps(ctx);
 
             //  TODO use ui.current_font_size() to size buttons, etc
@@ -343,7 +345,8 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     .movable(false)
                     .resizable(false)
                     .build(ui, || {
-                        if ui.button(im_str!("Quit"), [LEFT_WINDOW_WIDTH - window_padding[0] * 2.0, 30.0]) {
+                        let button_size = [LEFT_WINDOW_WIDTH - window_padding[0] * 2.0, 40.0];
+                        if ui.button(im_str!("Quit"), button_size) {
                             *quitting = true;
                         }
 
@@ -367,13 +370,44 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         ui.spacing();
                         ui.spacing();
                         ui.spacing();
+                        ui.separator();
+                        ui.spacing();
+
+                        ui.text("TODO:");
+                        let mut todo_something = false;
+                        for city in world.cities().filter(|city| city.owner() == you_civ_id) {
+                            if city.producing().is_none() {
+                                todo_something = true;
+                                let clicked = ui.button(&ImString::new(format!("Set prod in {}", city.name())), button_size);
+                                if clicked {
+                                    *selected = Some(SelectedObject::City(city.id(), ImString::new(city.name())));
+                                }
+                            }
+                        }
+
+                        for unit in world.units().filter(|unit| unit.owner() == you_civ_id) {
+                            if !unit.sleeping() && unit.remaining_movement() > 0 {
+                                todo_something = true;
+                                let clicked = ui.button(&ImString::new(format!("Move {} {}", unit.name(), unit.position())), button_size);
+                                if clicked {
+                                    *selected = Some(SelectedObject::Unit(unit.id()));
+                                }
+                            }
+                        }
+
+                        if !todo_something {
+                            ui.text("Nothing");
+                        }
+
+                        ui.spacing();
+                        ui.separator();
                         ui.spacing();
 
                         ui.text(format!("Turn {}", world.turn()));
                         let open_sans_semi_bold_30_handle = ui.push_font(fonts.open_sans_semi_bold_30);
                         let you_ready = world.player(*you_player_id).unwrap().ready();
                         let turn_button_label = if you_ready { im_str!("Waiting for players") } else { im_str!("Next turn") };
-                        let next_turn_clicked = ui.button(turn_button_label, [LEFT_WINDOW_WIDTH - window_padding[0] * 2.0, 40.0]);
+                        let next_turn_clicked = ui.button(turn_button_label, button_size);
                         open_sans_semi_bold_30_handle.pop(ui);
                         if next_turn_clicked {
                             connection.send_message(MessageToServer::Action(GameActionType::SetReady(!you_ready)));
@@ -407,6 +441,12 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                                     ui.separator();
                                     ui.spacing();
                                     ui.spacing();
+
+                                    let mut sleeping = unit.sleeping();
+                                    if ui.checkbox(im_str!("Sleeping"), &mut sleeping) {
+                                        connection.send_message(MessageToServer::Action(GameActionType::SetSleeping { unit_id: *unit_id, sleeping }));
+                                    }
+
                                     ui.spacing();
 
                                     if unit.has_settle_ability() {

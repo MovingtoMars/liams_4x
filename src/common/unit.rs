@@ -76,6 +76,7 @@ pub struct Unit {
     owner: CivilizationId,
     unit_type: UnitType,
     total_movement: MapUnit,
+    pub(in crate::common) sleeping: bool,
     pub(in crate::common) position: TilePosition,
     pub(in crate::common) remaining_movement: MapUnit,
 }
@@ -91,6 +92,7 @@ impl Unit {
             name: template.name.clone(),
 
             remaining_movement: 0,
+            sleeping: false,
         }
     }
 
@@ -126,9 +128,14 @@ impl Unit {
         self.remaining_movement
     }
 
+    pub fn sleeping(&self) -> bool {
+        self.sleeping
+    }
+
     // Returns if the unit has the ability to settle. Note that this does not mean the unit can
     // settle right now, eg. may be on invalid tile or not enough movement.
     pub fn has_settle_ability(&self) -> bool {
+        // TODO get from UnitTemplate
         self.unit_type == UnitType::Civilian
     }
 }

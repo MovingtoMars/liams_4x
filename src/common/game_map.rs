@@ -19,6 +19,7 @@ pub enum GameActionType {
     SetReady(bool),
     // TODO use UnitTemplateId
     SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
+    SetSleeping { unit_id: UnitId, sleeping: bool },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -32,6 +33,7 @@ pub enum GameEventType {
     SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
     NewUnit { template: UnitTemplate, owner: CivilizationId, position: TilePosition, unit_id: UnitId },
     Crash { message: String },
+    SetSleeping { unit_id: UnitId, sleeping: bool },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -542,6 +544,14 @@ impl GameWorld {
                 self.apply_event(&event);
                 result.push(event);
             }
+            GameActionType::SetSleeping { unit_id, sleeping } => {
+                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return vec![] };
+                if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
+
+                let event = GameEventType::SetSleeping { unit_id: *unit_id, sleeping: *sleeping };
+                self.apply_event(&event);
+                result.push(event);
+            }
         }
 
         result
@@ -581,6 +591,9 @@ impl GameWorld {
             }
             GameEventType::Crash { .. } => {
                 // We expect the client to handle this.
+            }
+            GameEventType::SetSleeping { unit_id, sleeping } => {
+                self.units.get_mut(unit_id).unwrap().sleeping = *sleeping;
             }
         }
     }
