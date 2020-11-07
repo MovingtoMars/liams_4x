@@ -40,6 +40,7 @@ use super::utils::get_tile_window_pos;
 
 const VERTICAL_TILE_COUNT: f32 = 8.0;
 const HORIZONTAL_TILE_COUNT: f32 = 5.0;
+const LEFT_WINDOW_WIDTH: f32 = 250.0;
 
 fn get_tile_image_src_rect(index: usize) -> Rect {
     let x = (index as f32) / HORIZONTAL_TILE_COUNT % 1.0;
@@ -52,6 +53,9 @@ pub struct InGameState {
     tile_sprites: Image,
     world: GameWorld,
     offset: Translation<f32>,
+    zoom: f32,
+    mouse_x: f32,
+    mouse_y: f32,
     current_drag: Option<Drag>,
     selected: Option<SelectedObject>,
     // TODO turn this into a ncollide world
@@ -87,6 +91,9 @@ impl InGameState {
             tile_sprites: Image::new(ctx, "/sprites/tiles.png").unwrap(),
             world,
             offset: Translation::new(0.0, 0.0),
+            zoom:1.0,
+            mouse_x:0.0,
+            mouse_y:0.0,
             current_drag: None,
             selected: None,
             hitboxes,
@@ -117,13 +124,14 @@ impl InGameState {
 
     fn draw(&self, ctx: &mut Context, pos: TilePosition, sprite_index: usize, color: Option<graphics::Color>, rotation: f32) {
         let dest_point = self.offset * get_tile_window_pos(pos);
-        let mut dest_point = mint::Point2 { x: dest_point.x, y: dest_point.y };
+        let mut dest_point = mint::Point2 { x: dest_point.x*self.zoom, y: dest_point.y*self.zoom };
 
         if !self.in_drawable_bounds(dest_point, TILE_WIDTH, TILE_HEIGHT) {
             return;
         }
 
         let offset = mint::Point2 { x: 0.5, y: 0.5 };
+        let zoom = mint::Point2 { x: self.zoom, y: self.zoom };
         dest_point.x += TILE_WIDTH * offset.x;
         dest_point.y += TILE_HEIGHT * offset.y;
 
@@ -131,7 +139,8 @@ impl InGameState {
             .src(get_tile_image_src_rect(sprite_index))
             .dest(dest_point)
             .offset(offset)
-            .rotation(rotation);
+            .rotation(rotation)
+            .scale(zoom);
 
         if let Some(color) = color {
             params = params.color(color);
@@ -297,7 +306,6 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             let func = |ui: &imgui::Ui, fonts: &ImGuiFonts| {
                 let window_padding = ui.clone_style().window_padding;
 
-                const LEFT_WINDOW_WIDTH: f32 = 250.0;
                 imgui::Window::new(im_str!("General"))
                     .size([LEFT_WINDOW_WIDTH, screen_height], imgui::Condition::Always)
                     .position([0.0, screen_height - screen_height], imgui::Condition::Always)
@@ -443,6 +451,9 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     self.offset.x += dx;
                     self.offset.y += dy;
                 }
+                let offset = mint::Point2 { x: 0.5, y: 0.5 };
+                self.mouse_x = x - offset.x * TILE_WIDTH;
+                self.mouse_y = y - offset.y * TILE_HEIGHT; // is there a better way to do this? at the moment this offset is used twice but separately defined?
             }
             InputEvent::MouseDownEvent { button, x, y } => {
                 if let MouseButton::Left = button {
@@ -489,8 +500,16 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             InputEvent::TextInputEvent(_val) => {
 
             }
-            InputEvent::ScrollEvent { x: _x, y: _y } => {
+            InputEvent::ScrollEvent { x: _x, y: y } => {
+                let factor = 1.1_f32.powf(y);
+                let x_shift = ((self.mouse_x) - (self.mouse_x) / factor) / self.zoom;
+                let y_shift = (self.mouse_y - self.mouse_y / factor) / self.zoom;
+                self.zoom *= factor; // round?
 
+                // adjust offset so map at cursor is stationary
+                println!("{:?} {:?}", self.mouse_y, self.mouse_x); 
+                self.offset.x -= x_shift;
+                self.offset.y -= y_shift;
             }
             InputEvent::Quit => {
                 self.quitting = true;

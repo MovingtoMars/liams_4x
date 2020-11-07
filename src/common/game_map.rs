@@ -146,7 +146,7 @@ impl GameMap {
         }
         modified
     }
-    pub fn shortest_path(&mut self,s:TilePosition, d:TilePosition) -> Option<Vec<TilePosition>> { // Move this to game_map.rs?
+    pub fn shortest_path(&mut self,s:TilePosition, d:TilePosition) -> Option<Vec<TilePosition>> {
         // Find shortest path using A* algorithm
         let mut open_nodes = BinaryHeap::new();
         let mut visited_nodes = HashSet::new();
