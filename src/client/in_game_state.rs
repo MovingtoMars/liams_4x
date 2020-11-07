@@ -27,6 +27,7 @@ use crate::common::{
     Tile,
     TileType,
     UnitType,
+    CivilizationColor,
 };
 
 use super::InputEvent;
@@ -244,10 +245,12 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     UnitType::Civilian => SPRITE_CIVILIAN,
                     UnitType::Soldier => SPRITE_SOLDIER,
                 };
+                let [r, g, b] = self.world.civilization(unit.owner()).unwrap().color().percents();
                 let color = if unit.remaining_movement() > 0 {
-                    None
+                    // None
+                    Some(graphics::Color::new(r, g, b, 1.0))
                 } else {
-                    Some(graphics::Color::new(0.7, 0.7, 0.7, 0.9))
+                    Some(graphics::Color::new(r * 0.7, g *  0.7, b * 0.7, 0.9))
                 };
                 self.draw_tile_sprite(ctx, unit.position(), sprite_index, color);
             }
