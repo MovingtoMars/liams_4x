@@ -417,7 +417,7 @@ impl GameWorld {
                 let city = self.cities.get(&city_id).unwrap();
 
                 if let Some((unit, ref spent)) = &city.producing {
-                    if *spent > unit.production_cost {
+                    if *spent >= unit.production_cost {
                         Some(city.producing.clone().unwrap().0)
                     } else {
                         None
