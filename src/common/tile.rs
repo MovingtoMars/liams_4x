@@ -2,21 +2,30 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::common::*;
 
-use self::TileType::*;
+use TileType::*;
 use ResourceType::*;
+use Vegetation::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TileType {
     Plains,
     Mountain,
     Ocean,
+    Desert,
 }
 
 impl TileType {
-    pub fn supported_resources(self) -> Vec<ResourceType> {
+    pub fn supported_resources(self) -> Vec<(ResourceType, usize)> {
         match self {
-            Plains => vec![Sheep, Horses],
-            Mountain | Ocean => vec![],
+            Plains => vec![(Sheep, 3), (Horses, 2), (Gold, 1), (Iron, 1), (Silver, 1), (Niter, 1), (Coal, 1), (Wheat, 3)],
+            Mountain | Ocean | Desert => vec![],
+        }
+    }
+
+    pub fn supported_vegetation(self) -> Vec<(Vegetation, usize)> {
+        match self {
+            Plains => vec![(Forest, 4), (Jungle, 1)],
+            Mountain | Ocean | Desert => vec![],
         }
     }
 
@@ -25,6 +34,7 @@ impl TileType {
             Plains => Yields::default().with_food(2),
             Mountain => Yields::default().with_science(1),
             Ocean => Yields::default().with_food(1),
+            Desert => Yields::default(),
         }
     }
 }
@@ -35,6 +45,7 @@ impl std::fmt::Display for TileType {
             Plains => "Plains",
             Mountain => "Mountain",
             Ocean => "Ocean",
+            Desert => "Desert",
         })
     }
 }
@@ -50,6 +61,7 @@ pub struct Tile {
     pub rivers: BTreeSet<TileEdge>,
 
     pub resource: Option<ResourceType>,
+    pub vegetation: Option<Vegetation>,
 }
 
 impl Tile {

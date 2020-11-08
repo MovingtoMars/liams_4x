@@ -23,16 +23,27 @@ pub const SPRITE_SOLDIER: usize = 6;
 pub const SPRITE_CIVILIAN_HIGHLIGHT: usize = 7;
 pub const SPRITE_SOLDIER_HIGHLIGHT: usize = 8;
 
-pub const SPRITE_TILE_HIGHLIGHT_BLUE_1: usize = 10;
-pub const SPRITE_TILE_HIGHLIGHT_BLUE_2: usize = 11;
-pub const SPRITE_TILE_HIGHLIGHT_BLUE_3: usize = 12;
+pub const SPRITE_TILE_HIGHLIGHT_BLUE_1: usize = 15;
+pub const SPRITE_TILE_HIGHLIGHT_BLUE_2: usize = 15;
+pub const SPRITE_TILE_HIGHLIGHT_BLUE_3: usize = 15;
 
 pub const SPRITE_RIVER: usize = 13;
 
 pub const SPRITE_BORDER: usize = 14;
 
+pub const SPRITE_JUNGLE: usize = 18;
+pub const SPRITE_FOREST: usize = 19;
+
 pub const SPRITE_RESOURCE_SHEEP: usize = 20;
 pub const SPRITE_RESOURCE_HORSES: usize = 21;
+pub const SPRITE_RESOURCE_GOLD: usize = 22;
+pub const SPRITE_RESOURCE_IRON: usize = 23;
+pub const SPRITE_RESOURCE_SILVER: usize = 24;
+pub const SPRITE_RESOURCE_NITER: usize = 25;
+pub const SPRITE_RESOURCE_COAL: usize = 26;
+pub const SPRITE_RESOURCE_WHEAT: usize = 27;
+
+pub const SPRITE_TILE_DESERT: usize = 35;
 
 // Yield spritesheet
 pub const YIELD_ICON_WIDTH: f32 = 16.0;

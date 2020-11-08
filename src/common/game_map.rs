@@ -59,6 +59,7 @@ impl GameMap {
                     rivers: BTreeSet::new(),
                     city: None,
                     resource: None,
+                    vegetation: None,
                 });
             }
             tile_cols.push(tile_col);

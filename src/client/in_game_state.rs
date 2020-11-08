@@ -30,6 +30,7 @@ use crate::common::{
     TileEdge,
     ResourceType,
     Yields,
+    Vegetation,
 };
 
 use super::InputEvent;
@@ -124,6 +125,7 @@ impl InGameState {
             TileType::Plains => SPRITE_TILE_PLAINS,
             TileType::Ocean => SPRITE_TILE_OCEAN,
             TileType::Mountain => SPRITE_TILE_MOUNTAIN,
+            TileType::Desert => SPRITE_TILE_DESERT,
         };
 
         self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
@@ -133,8 +135,23 @@ impl InGameState {
             let sprite_index = match resource {
                 Sheep => SPRITE_RESOURCE_SHEEP,
                 Horses => SPRITE_RESOURCE_HORSES,
+                Gold => SPRITE_RESOURCE_GOLD,
+                Iron => SPRITE_RESOURCE_IRON,
+                Silver => SPRITE_RESOURCE_SILVER,
+                Niter => SPRITE_RESOURCE_NITER,
+                Coal => SPRITE_RESOURCE_COAL,
+                Wheat => SPRITE_RESOURCE_WHEAT,
             };
 
+            self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
+        }
+
+        if let Some(vegetation) = tile.vegetation {
+            use Vegetation::*;
+            let sprite_index = match vegetation {
+                Forest => SPRITE_FOREST,
+                Jungle => SPRITE_JUNGLE,
+            };
             self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
         }
     }
@@ -363,7 +380,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 let color = if unit.remaining_movement() > 0 {
                     Some(graphics::Color::new(r, g, b, 1.0))
                 } else {
-                    Some(graphics::Color::new(r * 0.7, g *  0.7, b * 0.7, 0.9))
+                    Some(graphics::Color::new(r * 0.7, g *  0.7, b * 0.7, 0.95))
                 };
                 self.draw_tile_sprite(ctx, unit.position(), sprite_index, color);
             }
@@ -466,7 +483,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         ui.separator();
                         ui.spacing();
 
-                        ui.text("TODO:");
+                        ui.text("Tasks:");
                         let mut todo_something = false;
                         for city in world.cities().filter(|city| city.owner() == you_civ_id) {
                             if city.producing().is_none() {
@@ -519,8 +536,33 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         .build(ui, || {
                             match selected {
                                 SelectedObject::Tile(pos) => {
-                                    let tile_type = world.map.tile(*pos).tile_type;
+                                    let tile = world.map.tile(*pos);
+                                    let tile_type = tile.tile_type;
                                     ui.text(format!("{} tile at {}", tile_type, pos));
+
+                                    let mut things = vec![];
+                                    if let Some(resource) = tile.resource {
+                                        things.push(format!("{}", resource));
+                                    }
+                                    if let Some(vegetation) = tile.vegetation {
+                                        things.push(format!("{}", vegetation));
+                                    }
+                                    if things.len() > 0 {
+                                        ui.text(things.join(", "));
+                                    }
+
+                                    ui.spacing();
+
+                                    let yields = tile.yields();
+                                    if yields.food > 0 {
+                                        ui.text(format!("{} food", yields.food));
+                                    }
+                                    if yields.production > 0 {
+                                        ui.text(format!("{} production", yields.production));
+                                    }
+                                    if yields.science > 0 {
+                                        ui.text(format!("{} science", yields.science));
+                                    }
                                 },
                                 SelectedObject::Unit(unit_id) => {
                                     let unit = world.unit(*unit_id).unwrap();

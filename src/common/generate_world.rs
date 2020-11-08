@@ -1,5 +1,21 @@
 use crate::common::*;
 
+fn choose_with_weights<T: Copy>(inputs: &[(T, usize)]) -> T {
+    assert!(inputs.len() > 0);
+
+    let total: usize = inputs.iter().map(|(_, weight)| weight).sum();
+    let mut r = rand::random::<usize>() % total;
+
+    for &(choice, weight) in inputs {
+        if r < weight {
+            return choice;
+        }
+        r -= weight;
+    }
+
+    unreachable!()
+}
+
 fn map_size(num_players: usize) -> (MapUnit, MapUnit) {
     let num_tiles_wanted = num_players * 250;
 
@@ -62,9 +78,15 @@ impl GameWorld {
                 world.map.tile_mut(position).tile_type = tile_type;
 
                 let supported_resources = tile_type.supported_resources();
-                if supported_resources.len() > 0 && rand::random::<f32>() > 0.6 {
-                    let resource = supported_resources[rand::random::<usize>() % supported_resources.len()];
+                if supported_resources.len() > 0 && rand::random::<f32>() > 0.7 {
+                    let resource = choose_with_weights(&supported_resources);
                     world.map.tile_mut(position).resource = Some(resource);
+                }
+
+                let supported_vegetation = tile_type.supported_vegetation();
+                if supported_vegetation.len() > 0 && rand::random::<f32>() > 0.7 {
+                    let vegetation = choose_with_weights(&supported_vegetation);
+                    world.map.tile_mut(position).vegetation = Some(vegetation);
                 }
             }
         }
