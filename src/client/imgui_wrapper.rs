@@ -12,10 +12,33 @@ use imgui_gfx_renderer::*;
 
 use std::time::Instant;
 
+use clipboard::ClipboardProvider;
+
 use super::InputEvent;
 
-// TODO integrate with system clipboard
 // TODO go through https://github.com/ocornut/imgui/blob/master/docs/FAQ.md and add stuff we should have
+
+pub struct SystemClickboard;
+
+impl imgui::ClipboardBackend for SystemClickboard {
+    fn get(&mut self) -> Option<ImString> {
+        if let Ok(mut context) = clipboard::ClipboardContext::new() {
+            if let Ok(contents) = context.get_contents() {
+                return Some(ImString::new(contents));
+            }
+        }
+        println!("Failed to get clipboard content.");
+        None
+    }
+
+    fn set(&mut self, value: &ImStr) {
+        if let Ok(mut context) = clipboard::ClipboardContext::new() {
+            if context.set_contents(value.to_string()).is_err() {
+                println!("Failed to set clipboard content.");
+            }
+        }
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 struct MouseState {
@@ -44,6 +67,8 @@ impl ImGuiWrapper {
     // Create the imgui object
     let mut imgui = imgui::Context::create();
     let (factory, gfx_device, _, _, _) = graphics::gfx_objects(ctx);
+
+    imgui.set_clipboard_backend(Box::new(SystemClickboard));
 
     // Shaders
     let shaders = {

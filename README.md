@@ -10,6 +10,9 @@ https://github.com/ggez/ggez/blob/master/docs/BuildingForEveryPlatform.md
 imgui build requirements:
 https://github.com/Gekkio/imgui-rs
 
+rust-clipboard build requirements:
+https://github.com/aweinstock314/rust-clipboard
+
 Basically, on Windows you should be using the MSVC ABI version of Rust.
 
 After all the requirements are ready:
