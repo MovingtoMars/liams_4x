@@ -148,43 +148,10 @@ impl ImGuiWrapper {
   }
 
   pub fn render<F: FnOnce(&Ui, &ImGuiFonts)>(&mut self, ctx: &mut Context, hidpi_factor: f32, f: F) {
-    // Update mouse
-    self.update_mouse();
-
-    // Create new frame
-    let now = Instant::now();
-    let delta = now - self.last_frame;
-    let delta_s = delta.as_secs() as f32 + delta.subsec_nanos() as f32 / 1_000_000_000.0;
-    self.last_frame = now;
-
-    let (draw_width, draw_height) = graphics::drawable_size(ctx);
-    self.imgui.io_mut().display_size = [draw_width, draw_height];
-    self.imgui.io_mut().display_framebuffer_scale = [hidpi_factor, hidpi_factor];
-    self.imgui.io_mut().delta_time = delta_s;
-
-    let ui = self.imgui.frame();
-
-    // Various ui things
-    {
-      // Window
-      let open_sans_regular_22_handle = ui.push_font(self.fonts.open_sans_regular_22);
-      f(&ui, &self.fonts);
-      open_sans_regular_22_handle.pop(&ui);
-    }
-
-    // Render
-    let (factory, _, encoder, _, render_target) = graphics::gfx_objects(ctx);
-    let draw_data = ui.render();
-    self
-      .renderer
-      .render(
-        &mut *factory,
-        encoder,
-        &mut RenderTargetView::new(render_target.clone()),
-        draw_data,
-      )
-      .unwrap();
-  }
+       let render_context = self.render_start(ctx, hidpi_factor);
+       f(&render_context.ui, &render_context.fonts);
+       render_context.render(ctx);
+   }
 
   fn update_mouse(&mut self) {
     self.imgui.io_mut().mouse_pos = [self.mouse_state.pos.0 as f32, self.mouse_state.pos.1 as f32];
@@ -315,4 +282,54 @@ impl ImGuiWrapper {
 
       false
   }
+
+  pub fn render_start<'a, 'b>(&'a mut self, ctx: &'b mut Context, hidpi_factor: f32) -> ImGuiRenderContext {
+    // Update mouse
+    self.update_mouse();
+
+    // Create new frame
+    let now = Instant::now();
+    let delta = now - self.last_frame;
+    let delta_s = delta.as_secs() as f32 + delta.subsec_nanos() as f32 / 1_000_000_000.0;
+    self.last_frame = now;
+
+    let (draw_width, draw_height) = graphics::drawable_size(ctx);
+    self.imgui.io_mut().display_size = [draw_width, draw_height];
+    self.imgui.io_mut().display_framebuffer_scale = [hidpi_factor, hidpi_factor];
+    self.imgui.io_mut().delta_time = delta_s;
+
+    let ui = self.imgui.frame();
+    let default_font_handle = ui.push_font(self.fonts.open_sans_regular_22);
+
+    ImGuiRenderContext {
+        ui,
+        renderer: &mut self.renderer,
+        default_font_handle,
+        fonts: &self.fonts,
+    }
+  }
+}
+
+pub struct ImGuiRenderContext<'a> {
+    pub ui: Ui<'a>,
+    pub fonts: &'a ImGuiFonts,
+    renderer: &'a mut Renderer<gfx_core::format::Rgba8, gfx_device_gl::Resources>,
+    default_font_handle: FontStackToken,
+}
+
+impl<'a> ImGuiRenderContext<'a> {
+    pub fn render(self, ctx: &mut Context) {
+        self.default_font_handle.pop(&self.ui);
+        let (factory, _, encoder, _, render_target) = graphics::gfx_objects(ctx);
+        let draw_data = self.ui.render();
+        self
+          .renderer
+          .render(
+            &mut *factory,
+            encoder,
+            &mut RenderTargetView::new(render_target.clone()),
+            draw_data,
+          )
+          .unwrap();
+    }
 }

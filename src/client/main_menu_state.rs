@@ -5,7 +5,6 @@ use ggez_goodies::scene::SceneSwitch;
 
 use super::InputEvent;
 use super::SharedData;
-use super::imgui_wrapper::ImGuiFonts;
 use super::lobby_state::LobbyState;
 use super::input_server_addr_state::InputServerAddrState;
 
@@ -59,34 +58,34 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for MainMenuState {
 
         let Self { hosting, joining, quitting, player_name, .. } = self;
 
-        let func = move |ui: &imgui::Ui, _fonts: &ImGuiFonts| {
-            // ui.
-            use imgui::*;
+        let render_context = shared_data.imgui_wrapper.render_start(ctx, shared_data.hidpi_factor);
+        let ui = &render_context.ui;
 
-            let window_width = 600.0;
-            let window_height = 400.0;
+        use imgui::*;
 
-            let full_button_size: [f32; 2] = [window_width - ui.clone_style().window_padding[0] * 2.0, 40.0];
+        let window_width = 600.0;
+        let window_height = 400.0;
 
-            imgui::Window::new(im_str!("Main Menu"))
-                .position([(screen_width - window_width) / 2.0, (screen_height - window_height) / 2.0], Condition::Always)
-                .size([window_width, window_height], Condition::Always)
-                .collapsible(false)
-                .resizable(false)
-                .build(ui, || {
-                    let mut name_buf = ImString::new(player_name.as_str());
-                    imgui::InputText::new(ui, im_str!("Player Name"), &mut name_buf)
-                        .resize_buffer(true)
-                        .build();
-                    *player_name = name_buf.to_str().into();
+        let full_button_size: [f32; 2] = [window_width - ui.clone_style().window_padding[0] * 2.0, 40.0];
 
-                    *hosting = ui.button(im_str!("Host Game"), full_button_size);
-                    *joining = ui.button(im_str!("Join Game"), full_button_size);
-                    *quitting = ui.button(im_str!("Quit"), full_button_size);
-                });
-        };
+        imgui::Window::new(im_str!("Main Menu"))
+            .position([(screen_width - window_width) / 2.0, (screen_height - window_height) / 2.0], Condition::Always)
+            .size([window_width, window_height], Condition::Always)
+            .collapsible(false)
+            .resizable(false)
+            .build(&ui, || {
+                let mut name_buf = ImString::new(player_name.as_str());
+                imgui::InputText::new(&ui, im_str!("Player Name"), &mut name_buf)
+                    .resize_buffer(true)
+                    .build();
+                *player_name = name_buf.to_str().into();
 
-        shared_data.imgui_wrapper.render(ctx, shared_data.hidpi_factor, func);
+                *hosting = ui.button(im_str!("Host Game"), full_button_size);
+                *joining = ui.button(im_str!("Join Game"), full_button_size);
+                *quitting = ui.button(im_str!("Quit"), full_button_size);
+            });
+
+        render_context.render(ctx);
 
         graphics::present(ctx)
     }
