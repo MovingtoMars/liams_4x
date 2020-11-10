@@ -336,7 +336,7 @@ impl InGameState {
                 .always_auto_resize(true)
                 .draw_background(false)
                 .build(&rc.ui, || {
-                    let clicked = rc.ui.button(&ImString::new(city.name()), [width, 40.0]);
+                    let clicked = rc.ui.button(&ImString::new(format!("{} {}", city.population(), city.name())), [width, 40.0]);
                     if clicked {
                         *selected = Some(SelectedObject::City(city.id(), ImString::new(city.name())));
                     }
