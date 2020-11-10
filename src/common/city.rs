@@ -145,8 +145,6 @@ impl City {
 
         unworked_tiles.sort_by_key(|pos| -map.tile(*pos).yields().total());
 
-        println!("{} {}", self.unemployed_citizen_count(), unworked_tiles.len());
-
         for i in 0..self.unemployed_citizen_count() {
             if let Some(unworked_pos) = unworked_tiles.get(i as usize) {
                 self.territory.insert(*unworked_pos, Some(Citizen::Normal));
