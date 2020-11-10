@@ -1,5 +1,20 @@
 use crate::common::*;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum UnitType {
+    Civilian,
+    Soldier,
+}
+
+impl std::fmt::Display for UnitType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match *self {
+            UnitType::Civilian => "Civilian",
+            UnitType::Soldier => "Soldier",
+        })
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct UnitId(u16);
 

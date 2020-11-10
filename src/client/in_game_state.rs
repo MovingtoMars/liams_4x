@@ -31,6 +31,7 @@ use crate::common::{
     ResourceType,
     Yields,
     Vegetation,
+    Citizen,
 };
 
 use super::InputEvent;
@@ -43,12 +44,18 @@ use super::imgui_wrapper::ImGuiFonts;
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
+const CENTER_OFFSET: mint::Point2<f32> = mint::Point2 { x: 0.5, y: 0.5 };
+
 fn get_tile_image_src_rect(index: usize) -> Rect {
     get_image_src_rect(index, 5, 8)
 }
 
 fn get_yield_image_src_rect(index: usize) -> Rect {
     get_image_src_rect(index, 5, 5)
+}
+
+fn get_citizen_image_src_rect(index: usize) -> Rect {
+    get_image_src_rect(index, 3, 3)
 }
 
 fn get_image_src_rect(index: usize, x_count: usize, y_count: usize) -> Rect {
@@ -61,6 +68,7 @@ fn get_image_src_rect(index: usize, x_count: usize, y_count: usize) -> Rect {
 pub struct InGameState {
     tile_sprites: Image,
     yield_sprites: Image,
+    citizen_sprites: Image,
     world: GameWorld,
     offset: Translation<f32>,
     current_drag: Option<Drag>,
@@ -106,6 +114,7 @@ impl InGameState {
         let s = InGameState {
             tile_sprites: Image::new(ctx, "/sprites/tiles.png").unwrap(),
             yield_sprites: Image::new(ctx, "/sprites/yields.png").unwrap(),
+            citizen_sprites: Image::new(ctx, "/sprites/citizens.png").unwrap(),
             world,
             offset,
             current_drag: None,
@@ -171,7 +180,7 @@ impl InGameState {
             return;
         }
 
-        let offset = mint::Point2 { x: 0.5, y: 0.5 };
+        let offset = CENTER_OFFSET;
         dest_point.x += TILE_WIDTH * offset.x;
         dest_point.y += TILE_HEIGHT * offset.y;
 
@@ -186,6 +195,30 @@ impl InGameState {
         }
 
         graphics::draw(ctx, &self.tile_sprites, params).unwrap();
+    }
+
+    fn draw_citizen_sprite(&self, ctx: &mut Context, pos: TilePosition, citizen: Option<Citizen>) {
+        let dest_center = self.offset * get_tile_window_pos(pos);
+        // TODO put this in a function
+        let dest_center = mint::Point2 {
+            x: dest_center.x + TILE_WIDTH * 0.5,
+            y: dest_center.y + TILE_HEIGHT * 0.5,
+        };
+
+        if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
+            return;
+        }
+
+        let sprite_index = match citizen {
+            None => SPRITE_CITIZEN_NONE,
+            Some(Citizen::Normal) => SPRITE_CITIZEN_NORMAL,
+            Some(Citizen::Locked) => SPRITE_CITIZEN_LOCKED,
+        };
+        let src = get_citizen_image_src_rect(sprite_index);
+
+        let params = DrawParam::default().dest(dest_center).src(src).offset(CENTER_OFFSET);
+
+        graphics::draw(ctx, &self.citizen_sprites, params).unwrap();
     }
 
     fn draw_yields(&self, ctx: &mut Context, pos: TilePosition, yields: Yields) {
@@ -230,7 +263,7 @@ impl InGameState {
             let src = get_yield_image_src_rect(sprite_index);
 
             for i in 0..num {
-                let offset = mint::Point2 { x: 0.5, y: 0.5 };
+                let offset = CENTER_OFFSET;
 
                 let extra_y = match (num, i) {
                     (1, 0) => 0.0,
@@ -251,7 +284,7 @@ impl InGameState {
                     y: dest_center.y + YIELD_ICON_WIDTH * offset.y + extra_y,
                 };
 
-                let params = DrawParam::default().dest(dest).src(src).offset(offset);
+                let params = DrawParam::default().dest(dest).src(src).offset(CENTER_OFFSET);
 
                 graphics::draw(ctx, &self.yield_sprites, params).unwrap();
             }
@@ -391,8 +424,15 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         self.draw_tile_sprite(ctx, *pos, SPRITE_TILE_HIGHLIGHT, None);
                     }
                     SelectedObject::City(city_id, _) => {
-                        let pos = self.world.city(*city_id).unwrap().position();
+                        let city = self.world.city(*city_id).unwrap();
+                        let pos = city.position();
                         self.draw_tile_sprite(ctx, pos, SPRITE_TILE_HIGHLIGHT, None);
+
+                        for (pos, citizen) in city.territory() {
+                            if *pos != city.position() {
+                                self.draw_citizen_sprite(ctx, *pos, *citizen);
+                            }
+                        }
                     }
                     SelectedObject::Unit(unit_id) => {
                         let unit = self.world.unit(*unit_id).unwrap();
@@ -615,6 +655,17 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                                     ui.spacing();
                                     ui.separator();
                                     ui.spacing();
+
+                                    let yields = city.yields();
+
+                                    ui.text(format!("Population: {}", city.population()));
+                                    ui.text(format!("Food: {}", yields.food));
+                                    ui.text(format!("Production: {}", yields.production));
+                                    ui.text(format!("Science: {}", yields.science));
+
+                                    ui.spacing();
+                                    ui.separator();
+                                    ui.spacing();
                                     if let Some((producing_unit, producing_progress)) = city.producing() {
                                         ui.text(format!("Production: {}", producing_unit.name));
                                         let production_remaining = producing_unit.production_cost - producing_progress;
@@ -692,7 +743,15 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 }
             }
             InputEvent::MouseUpEvent { button, x, y } => {
-                let hovered = get_hovered_object(x, y, &self.offset, &self.hitboxes);
+                let mut hitboxes = self.hitboxes.clone();
+                if let Some(SelectedObject::City(city_id, _)) = self.selected {
+                    let city = self.world.city(city_id).unwrap();
+                    let tiles: Vec<_> = city.territory_tiles().into_iter().filter(|pos| *pos != city.position()).collect();
+                    for pos in tiles {
+                        hitboxes.insert(HitboxKey::Citizen(pos), Hitbox::citizen(pos));
+                    }
+                }
+                let hovered = get_hovered_object(x, y, &self.offset, &hitboxes);
 
                 if let MouseButton::Left = button {
                     if let Some(ref drag) = self.current_drag {
@@ -704,10 +763,30 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     }
 
                     // A mouse click on the map occurred
-                    self.selected = hovered.map(|hovered| match hovered {
-                        HitboxKey::Tile(position) => SelectedObject::Tile(position),
-                        HitboxKey::Unit(unit_id) => SelectedObject::Unit(unit_id),
-                    });
+                    if let Some(hovered) = hovered {
+                        match hovered {
+                            HitboxKey::Tile(position) => {
+                                self.selected = Some(SelectedObject::Tile(position));
+                            }
+                            HitboxKey::Unit(unit_id) => {
+                                self.selected = Some(SelectedObject::Unit(unit_id));
+                            }
+                            HitboxKey::Citizen(position) => {
+                                if let Some(SelectedObject::City(city_id, _)) = self.selected {
+                                    let city = self.world.city(city_id).unwrap();
+                                    let citizen = city.territory().get(&position).unwrap();
+                                    let locked = match citizen {
+                                        Some(Citizen::Normal) | None => true,
+                                        Some(Citizen::Locked) => false,
+                                    };
+
+                                    self.send_action(GameActionType::SetCitizenLocked { city_id, position, locked });
+                                } else {
+                                    unreachable!();
+                                }
+                            }
+                        }
+                    };
                 } else if let MouseButton::Right = button {
                     if let Some(SelectedObject::Unit(unit_id)) = self.selected {
                         if let Some(HitboxKey::Tile(pos)) = hovered {

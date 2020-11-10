@@ -69,11 +69,13 @@ impl ResourceType {
     }
 }
 
+pub type Yield = i16;
+
 #[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Yields {
-    pub food: i8,
-    pub production: i8,
-    pub science: i8,
+    pub food: Yield,
+    pub production: Yield,
+    pub science: Yield,
 }
 
 impl std::ops::Add for Yields {
@@ -89,18 +91,22 @@ impl std::ops::Add for Yields {
 }
 
 impl Yields {
-    pub fn with_food(mut self, food: i8) -> Self {
+    pub fn with_food(mut self, food: Yield) -> Self {
         self.food = food;
         self
     }
 
-    pub fn with_production(mut self, production: i8) -> Self {
+    pub fn with_production(mut self, production: Yield) -> Self {
         self.production = production;
         self
     }
 
-    pub fn with_science(mut self, science: i8) -> Self {
+    pub fn with_science(mut self, science: Yield) -> Self {
         self.science = science;
         self
+    }
+
+    pub fn total(self) -> Yield {
+        self.food + self.production + self.science
     }
 }

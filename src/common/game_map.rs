@@ -20,6 +20,7 @@ pub enum GameActionType {
     // TODO use UnitTemplateId
     SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
     SetSleeping { unit_id: UnitId, sleeping: bool },
+    SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,6 +35,7 @@ pub enum GameEventType {
     NewUnit { template: UnitTemplate, owner: CivilizationId, position: TilePosition, unit_id: UnitId },
     Crash { message: String },
     SetSleeping { unit_id: UnitId, sleeping: bool },
+    SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -80,6 +82,7 @@ impl GameMap {
         self.height
     }
 
+    #[allow(dead_code)]
     pub fn try_tile(&self, position: TilePosition) -> Option<&Tile> {
         if self.has_tile(position) {
             Some(self.tile(position))
@@ -165,84 +168,6 @@ impl GameMap {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum UnitType {
-    Civilian,
-    Soldier,
-}
-
-impl std::fmt::Display for UnitType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match *self {
-            UnitType::Civilian => "Civilian",
-            UnitType::Soldier => "Soldier",
-        })
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct CityId(u16);
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct City {
-    id: CityId,
-    owner: CivilizationId,
-    position: TilePosition,
-    name: String,
-    production: i16,
-
-    // unit being produced and the amount of production put into it
-    producing: Option<(UnitTemplate, i16)>,
-
-    territory: Vec<TilePosition>,
-    // Generated from territory and cached for perf
-    borders: Vec<EdgePosition>,
-}
-
-impl City {
-    pub fn id(&self) -> CityId {
-        self.id
-    }
-
-    pub fn owner(&self) -> CivilizationId {
-        self.owner
-    }
-
-    pub fn position(&self) -> TilePosition {
-        self.position
-    }
-
-    pub fn name(&self) -> &String {
-        &self.name
-    }
-
-    fn on_turn_start(&mut self) {
-        if let Some((_, ref mut spent)) = &mut self.producing {
-            *spent += self.production;
-        }
-    }
-
-    pub fn production(&self) -> i16 {
-        self.production
-    }
-
-    pub fn producing(&self) -> &Option<(UnitTemplate, i16)> {
-        &self.producing
-    }
-
-    pub fn territory(&self) -> &[TilePosition] {
-        &self.territory
-    }
-
-    fn update_borders_from_territory(&mut self) {
-        self.borders = TilePosition::borders(&self.territory);
-    }
-
-    pub fn borders(&self) -> &[EdgePosition] {
-        &self.borders
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameWorld {
     pub map: GameMap,
@@ -251,12 +176,11 @@ pub struct GameWorld {
     cities: BTreeMap<CityId, City>,
     civilizations: BTreeMap<CivilizationId, Civilization>,
 
-    next_city_id: u16,
-
     turn: u16,
 
     unit_id_generator: UnitIdGenerator,
     city_name_generator: CityNameGenerator,
+    city_id_generator: CityIdGenerator,
     civilization_id_generator: CivilizationIdGenerator,
 
     unit_template_manager: UnitTemplateManager,
@@ -270,10 +194,10 @@ impl GameWorld {
             units: BTreeMap::new(),
             cities: BTreeMap::new(),
             civilizations: BTreeMap::new(),
-            next_city_id: 0,
             turn: 0,
             unit_id_generator: UnitIdGenerator::new(),
             city_name_generator: CityNameGenerator::new(),
+            city_id_generator: CityIdGenerator::new(),
             civilization_id_generator: CivilizationIdGenerator::new(),
             unit_template_manager: UnitTemplateManager::new(),
         };
@@ -327,11 +251,6 @@ impl GameWorld {
         self.turn
     }
 
-    fn next_city_id(&mut self) -> CityId {
-        self.next_city_id += 1;
-        CityId(self.next_city_id)
-    }
-
     pub fn units(&self) -> impl Iterator<Item = &Unit> {
         self.units.iter().map(|(_, v)| v)
     }
@@ -351,24 +270,10 @@ impl GameWorld {
     pub fn new_city(&mut self, owner: CivilizationId, position: TilePosition) -> &mut City {
         assert!(self.map.tile(position).city.is_none());
 
-        let territory = position
-            .neighbors_at_distance(self.map.width(), self.map.height(), 1, true)
-            .into_iter()
-            .map(|(pos, _)| pos)
-            .collect();
+        let id = self.city_id_generator.next();
+        let name = self.city_name_generator.next();
 
-        let id = self.next_city_id();
-        let mut city = City {
-            position,
-            owner,
-            name: self.city_name_generator.next(),
-            id,
-            production: 5,
-            producing: None,
-            territory,
-            borders: vec![],
-        };
-        city.update_borders_from_territory();
+        let mut city = City::new(id, owner, position, name, self);
 
         city.on_turn_start();
 
@@ -513,6 +418,15 @@ impl GameWorld {
                 self.apply_event(&event);
                 result.push(event);
             }
+            GameActionType::SetCitizenLocked { city_id, position, locked } => {
+                let city = if let Some(city) = self.city(*city_id) { city } else { return vec![] };
+                if self.player(actioner_id).unwrap().civilization_id() != city.owner() { return vec![] };
+                if !city.territory().contains_key(position) { return vec![] };
+
+                let event = GameEventType::SetCitizenLocked { city_id: *city_id, position: *position, locked: *locked };
+                self.apply_event(&event);
+                result.push(event);
+            }
         }
 
         result
@@ -555,6 +469,11 @@ impl GameWorld {
             }
             GameEventType::SetSleeping { unit_id, sleeping } => {
                 self.units.get_mut(unit_id).unwrap().sleeping = *sleeping;
+            }
+            GameEventType::SetCitizenLocked { city_id, position, locked } => {
+                let city = self.cities.get_mut(city_id).unwrap();
+                city.set_citizen_locked(*position, *locked);
+                city.update(&self.map);
             }
         }
     }

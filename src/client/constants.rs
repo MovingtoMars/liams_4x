@@ -52,3 +52,12 @@ pub const YIELD_ICON_HEIGHT: f32 = 16.0;
 pub const SPRITE_YIELD_FOOD: usize = 0;
 pub const SPRITE_YIELD_PRODUCTION: usize = 1;
 pub const SPRITE_YIELD_SCIENCE: usize = 2;
+
+// Citizens spritesheet
+pub const CITIZEN_ICON_WIDTH: f32 = 100.0;
+#[allow(dead_code)]
+pub const CITIZEN_ICON_HEIGHT: f32 = 100.0;
+
+pub const SPRITE_CITIZEN_LOCKED: usize = 0;
+pub const SPRITE_CITIZEN_NORMAL: usize = 1;
+pub const SPRITE_CITIZEN_NONE: usize = 2;

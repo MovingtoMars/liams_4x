@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
+use ncollide2d::shape::Ball;
 use ncollide2d::shape::{ConvexPolygon, Shape};
 use ncollide2d::math::{Isometry, Translation, Point, Vector};
 use ncollide2d::query::PointQuery;
@@ -10,8 +12,9 @@ use crate::common::UnitId;
 use crate::client::utils::get_tile_window_pos;
 use crate::common::UnitType;
 
+#[derive(Clone)]
 pub struct Hitbox {
-    pub shape: Box<dyn Shape<f32>>,
+    pub shape: Rc<Box<dyn Shape<f32>>>,
     pub isometry: Isometry<f32>,
     pub z: f32, // -ve is into screen, +ve is out of screen
 }
@@ -35,7 +38,7 @@ impl Hitbox {
         ];
 
         Self {
-            shape: Box::new(ConvexPolygon::try_from_points(points).unwrap()),
+            shape: Rc::new(Box::new(ConvexPolygon::try_from_points(points).unwrap())),
             isometry: Isometry::new(Vector::new(pos.x + TILE_WIDTH / 2.0, pos.y + TILE_HEIGHT / 2.0), 0.0),
             z: 0.0,
         }
@@ -59,7 +62,7 @@ impl Hitbox {
         ];
 
         Self {
-            shape: Box::new(ConvexPolygon::try_from_points(points).unwrap()),
+            shape: Rc::new(Box::new(ConvexPolygon::try_from_points(points).unwrap())),
             isometry: Isometry::new(Vector::new(pos.x + TILE_WIDTH / 2.0, pos.y + TILE_HEIGHT / 2.0), 0.0),
             z: 1.0,
         }
@@ -77,9 +80,19 @@ impl Hitbox {
         ];
 
         Self {
-            shape: Box::new(ConvexPolygon::try_from_points(points).unwrap()),
+            shape: Rc::new(Box::new(ConvexPolygon::try_from_points(points).unwrap())),
             isometry: Isometry::new(Vector::new(pos.x + TILE_INNER_WIDTH / 2.0, pos.y + TILE_INNER_HEIGHT / 2.0), 0.0),
             z: 1.0,
+        }
+    }
+
+    pub fn citizen(pos: TilePosition) -> Self {
+        let pos = get_tile_window_pos(pos);
+
+        Self {
+            shape: Rc::new(Box::new(Ball::new(CITIZEN_ICON_WIDTH / 2.0))),
+            isometry: Isometry::new(Vector::new(pos.x + TILE_WIDTH / 2.0, pos.y + TILE_HEIGHT / 2.0), 0.0),
+            z: 2.0,
         }
     }
 }
@@ -88,6 +101,7 @@ impl Hitbox {
 pub enum HitboxKey {
     Tile(TilePosition),
     Unit(UnitId),
+    Citizen(TilePosition),
 }
 
 pub fn get_hovered_object<'a>(

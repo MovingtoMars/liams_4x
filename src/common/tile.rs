@@ -77,6 +77,8 @@ impl Tile {
     }
 
     pub fn yields(&self) -> Yields {
-        self.resource.map(|r| r.yields()).unwrap_or(Yields::default()) + self.tile_type.yields()
+        self.resource.map(|r| r.yields()).unwrap_or(Yields::default())
+            + self.vegetation.map(|v| v.yields()).unwrap_or(Yields::default())
+            + self.tile_type.yields()
     }
 }
