@@ -21,6 +21,7 @@ use self::imgui_wrapper::ImGuiWrapper;
 use self::main_menu_state::MainMenuState;
 
 pub struct SharedData {
+    // TODO this needs to be updated as dpi changes
     hidpi_factor: f32,
     imgui_wrapper: ImGuiWrapper,
 }
