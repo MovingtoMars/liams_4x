@@ -46,6 +46,9 @@ pub struct City {
     pub (in crate::common) borders: Vec<EdgePosition>,
 
     yields: Yields,
+
+    accumulated_food: Yield,
+    required_food_for_population_increase: Yield,
 }
 
 impl City {
@@ -66,6 +69,8 @@ impl City {
             territory,
             borders: vec![],
             yields: Yields::default(),
+            accumulated_food: 0,
+            required_food_for_population_increase: 0,
         };
         city.update(&world.map);
         city
@@ -91,6 +96,8 @@ impl City {
         if let Some((_, ref mut spent)) = &mut self.producing {
             *spent += self.production;
         }
+
+        self.accumulated_food += self.yields().food;
     }
 
     pub fn production(&self) -> i16 {
@@ -169,11 +176,14 @@ impl City {
     }
 
     fn update_yields(&mut self, map: &GameMap) {
-        self.yields = self.territory
+        let pop_yields = Yields::default().with_science(self.population);
+        let tile_yields = self.territory
             .iter()
             .filter(|(pos, citizen)| **pos == self.position || citizen.is_some())
             .map(|(pos, _)| map.tile(*pos).yields())
             .fold(Yields::default(), |y1, y2| y1 + y2);
+
+        self.yields = pop_yields + tile_yields;
     }
 
     pub (in crate::common) fn update(&mut self, map: &GameMap) {
