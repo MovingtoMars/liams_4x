@@ -461,7 +461,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 }
             }
             InputEvent::MouseUpEvent { button, x, y } => {
-                let hovered = get_hovered_object(x, y, &self.offset, &self.hitboxes);
+                let hovered = get_hovered_object(x, y, &self.offset, &self.hitboxes, &self.zoom);
 
                 if let MouseButton::Left = button {
                     if let Some(ref drag) = self.current_drag {
@@ -502,7 +502,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             }
             InputEvent::ScrollEvent { x: _x, y: y } => {
                 let factor = 1.1_f32.powf(y);
-                let x_shift = ((self.mouse_x) - (self.mouse_x) / factor) / self.zoom;
+                let x_shift = (self.mouse_x - self.mouse_x / factor) / self.zoom;
                 let y_shift = (self.mouse_y - self.mouse_y / factor) / self.zoom;
                 self.zoom *= factor; // round?
 
