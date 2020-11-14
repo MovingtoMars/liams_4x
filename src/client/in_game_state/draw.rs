@@ -99,7 +99,7 @@ impl InGameState {
         let dest_point = self.offset * get_tile_window_pos(pos);
         let mut dest_point = mint::Point2 { x: dest_point.x * self.zoom, y: dest_point.y * self.zoom };
 
-        if !self.in_drawable_bounds(dest_point, TILE_WIDTH, TILE_HEIGHT) {
+        if !self.in_drawable_bounds(dest_point, TILE_WIDTH * self.zoom, TILE_HEIGHT * self.zoom) {
             return;
         }
 
@@ -130,7 +130,7 @@ impl InGameState {
             y: (dest_center.y + TILE_HEIGHT * 0.5) * self.zoom,
         };
 
-        if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
+        if !self.in_drawable_bounds(dest_center, TILE_WIDTH * self.zoom, TILE_HEIGHT * self.zoom) {
             return;
         }
 
@@ -154,7 +154,7 @@ impl InGameState {
             y: (dest_center.y + TILE_HEIGHT * 0.70) * self.zoom,
         };
 
-        if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
+        if !self.in_drawable_bounds(dest_center, TILE_WIDTH * self.zoom, TILE_HEIGHT * self.zoom) {
             return;
         }
 
@@ -349,7 +349,7 @@ impl InGameState {
             imgui::Window::new(&ImString::new(format!("city for tile {}", city.position())))
                 .no_decoration()
                 // .size([50.0, 30.0], imgui::Condition::Always)
-                .position([dest_point.x * self.zoom + (TILE_WIDTH - width) / 2.0 - 5.0, dest_point.y * self.zoom], imgui::Condition::Always)
+                .position([dest_point.x * self.zoom  + (TILE_WIDTH * self.zoom - width) / 2.0 - 5.0, dest_point.y * self.zoom], imgui::Condition::Always)
                 .always_auto_resize(true)
                 .draw_background(false)
                 .build(&rc.ui, || {
