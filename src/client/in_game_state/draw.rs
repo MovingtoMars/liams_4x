@@ -20,6 +20,8 @@ use crate::common::{
     Yields,
     Vegetation,
     Citizen,
+    Unit,
+    UnitAbility,
 };
 
 use super::InGameState;
@@ -31,7 +33,7 @@ use super::super::utils::get_tile_window_pos;
 const CENTER_OFFSET: mint::Point2<f32> = mint::Point2 { x: 0.5, y: 0.5 };
 
 fn get_tile_image_src_rect(index: usize) -> Rect {
-    get_image_src_rect(index, 5, 8)
+    get_image_src_rect(index, 10, 8)
 }
 
 fn get_yield_image_src_rect(index: usize) -> Rect {
@@ -255,19 +257,29 @@ impl InGameState {
         self.draw(ctx, pos, sprite_index, color, 0.0);
     }
 
-    pub(super) fn draw_units(&mut self, ctx: &mut Context) {
+    fn draw_unit(&self, ctx: &mut Context, unit: &Unit) {
+        let sprite_index = match unit.unit_type() {
+            UnitType::Civilian => {
+                if unit.has_ability(UnitAbility::Settle) {
+                    SPRITE_SETTLER
+                } else {
+                    SPRITE_WORKER
+                }
+            },
+            UnitType::Soldier => SPRITE_SOLDIER,
+        };
+        let [r, g, b] = self.world.civilization(unit.owner()).unwrap().color().percents();
+        let color = if unit.remaining_movement() > 0 {
+            Some(graphics::Color::new(r, g, b, 1.0))
+        } else {
+            Some(graphics::Color::new(r * 0.7, g *  0.7, b * 0.7, 0.95))
+        };
+        self.draw_tile_sprite(ctx, unit.position(), sprite_index, color);
+    }
+
+    pub(super) fn draw_units(&self, ctx: &mut Context) {
         for unit in self.world.units() {
-            let sprite_index = match unit.unit_type() {
-                UnitType::Civilian => SPRITE_CIVILIAN,
-                UnitType::Soldier => SPRITE_SOLDIER,
-            };
-            let [r, g, b] = self.world.civilization(unit.owner()).unwrap().color().percents();
-            let color = if unit.remaining_movement() > 0 {
-                Some(graphics::Color::new(r, g, b, 1.0))
-            } else {
-                Some(graphics::Color::new(r * 0.7, g *  0.7, b * 0.7, 0.95))
-            };
-            self.draw_tile_sprite(ctx, unit.position(), sprite_index, color);
+            self.draw_unit(ctx, unit);
         }
     }
 
@@ -502,7 +514,7 @@ impl InGameState {
 
                         rc.ui.spacing();
 
-                        if unit.has_settle_ability() {
+                        if unit.has_ability(UnitAbility::Settle) {
                             // TODO disable button when can't settle
                             let founding_city = rc.ui.button(im_str!("Found city"), sidebar_button_size);
                             if founding_city {

@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::common::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -34,9 +36,10 @@ impl UnitIdGenerator {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnitAbility {
     Settle,
+    ImproveTile,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -44,7 +47,7 @@ pub struct UnitTemplate {
     pub unit_type: UnitType,
     pub name: String,
     pub movement: MapUnit,
-    pub abilities: Vec<UnitAbility>,
+    pub abilities: BTreeSet<UnitAbility>,
     pub production_cost: Yield,
 }
 
@@ -57,6 +60,7 @@ impl UnitTemplate {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UnitTemplateManager {
     pub settler: UnitTemplate,
+    pub worker: UnitTemplate,
     pub warrior: UnitTemplate,
 }
 
@@ -67,14 +71,21 @@ impl UnitTemplateManager {
                 unit_type: UnitType::Civilian,
                 name: "Settler".into(),
                 movement: 2,
-                abilities: vec![UnitAbility::Settle],
+                abilities: vec![UnitAbility::Settle].into_iter().collect(),
                 production_cost: 20.0,
+            },
+            worker: UnitTemplate {
+                unit_type: UnitType::Civilian,
+                name: "Worker".into(),
+                movement: 2,
+                abilities: vec![UnitAbility::ImproveTile].into_iter().collect(),
+                production_cost: 15.0,
             },
             warrior: UnitTemplate {
                 unit_type: UnitType::Soldier,
                 name: "Warrior".into(),
                 movement: 2,
-                abilities: vec![],
+                abilities: vec![].into_iter().collect(),
                 production_cost: 14.0,
             },
         }
@@ -83,6 +94,7 @@ impl UnitTemplateManager {
     pub fn all(&self) -> Vec<&UnitTemplate> {
         vec![
             &self.settler,
+            &self.worker,
             &self.warrior,
         ]
     }
@@ -97,6 +109,7 @@ pub struct Unit {
     owner: CivilizationId,
     unit_type: UnitType,
     total_movement: MapUnit,
+    abilities: BTreeSet<UnitAbility>,
     pub(in crate::common) sleeping: bool,
     pub(in crate::common) position: TilePosition,
     pub(in crate::common) remaining_movement: MapUnit,
@@ -111,6 +124,7 @@ impl Unit {
             position,
             total_movement: template.movement,
             name: template.name.clone(),
+            abilities: template.abilities.clone(),
 
             remaining_movement: 0,
             sleeping: false,
@@ -153,10 +167,7 @@ impl Unit {
         self.sleeping
     }
 
-    // Returns if the unit has the ability to settle. Note that this does not mean the unit can
-    // settle right now, eg. may be on invalid tile or not enough movement.
-    pub fn has_settle_ability(&self) -> bool {
-        // TODO get from UnitTemplate
-        self.unit_type == UnitType::Civilian
+    pub fn has_ability(&self, ability: UnitAbility) -> bool {
+        self.abilities.contains(&ability)
     }
 }

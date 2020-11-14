@@ -403,7 +403,7 @@ impl GameWorld {
                 if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
                 let city_exists_on_tile = self.map.tile(unit.position()).city.is_some();
 
-                if unit.has_settle_ability() && unit.remaining_movement() >= 1 && !city_exists_on_tile {
+                if unit.has_ability(UnitAbility::Settle) && unit.remaining_movement() >= 1 && !city_exists_on_tile {
                     let events = vec![
                         GameEventType::DeleteUnit { unit_id: *unit_id },
                         GameEventType::FoundCity { position: unit.position(), owner: unit.owner() },

@@ -18,7 +18,6 @@ pub const SPRITE_TILE_OCEAN: usize = 2;
 pub const SPRITE_TILE_HIGHLIGHT: usize = 3;
 pub const SPRITE_TILE_MOUNTAIN: usize = 4;
 
-pub const SPRITE_CIVILIAN: usize = 5;
 pub const SPRITE_SOLDIER: usize = 6;
 pub const SPRITE_CIVILIAN_HIGHLIGHT: usize = 7;
 pub const SPRITE_SOLDIER_HIGHLIGHT: usize = 8;
@@ -43,7 +42,10 @@ pub const SPRITE_RESOURCE_NITER: usize = 25;
 pub const SPRITE_RESOURCE_COAL: usize = 26;
 pub const SPRITE_RESOURCE_WHEAT: usize = 27;
 
-pub const SPRITE_TILE_DESERT: usize = 35;
+pub const SPRITE_SETTLER: usize = 30;
+pub const SPRITE_WORKER: usize = 31;
+
+pub const SPRITE_TILE_DESERT: usize = 70;
 
 // Yield spritesheet
 pub const YIELD_ICON_WIDTH: f32 = 16.0;
