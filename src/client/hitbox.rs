@@ -111,8 +111,7 @@ pub fn get_hovered_object<'a>(
     map_offset: &Translation<f32>,
     hitboxes: &HashMap<HitboxKey, Hitbox>,
 ) -> Option<HitboxKey> {
-    let mut point = map_offset.inverse() * Point::new(mouse_window_x / zoom, mouse_window_y / zoom);
-    //point = Point::new(point.coords.x / zoom, point.coords.y / zoom);
+    let point = map_offset.inverse() * Point::new(mouse_window_x / zoom, mouse_window_y / zoom);
 
     let mut result: Option<(HitboxKey, f32)> = None;
 

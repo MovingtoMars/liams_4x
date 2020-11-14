@@ -304,6 +304,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             }
             InputEvent::ScrollEvent { x: _x, y: _y } => {
                 let mut factor = 1.1_f32.powf(_y);
+                let old_zoom = self.zoom;
                 self.zoom *= factor;
 
                 if self.zoom < ZOOM_MIN {
@@ -316,8 +317,8 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     self.zoom = ZOOM_MAX;
                 }
 
-                let x_shift = (self.mouse_x - self.mouse_x / factor) / self.zoom;
-                let y_shift = (self.mouse_y - self.mouse_y / factor) / self.zoom;
+                let x_shift = (self.mouse_x - self.mouse_x / factor) / old_zoom;
+                let y_shift = (self.mouse_y - self.mouse_y / factor) / old_zoom;
 
                 // adjust offset so map at cursor is stationary
                 println!("{:?} {:?}", self.mouse_y, self.mouse_x); 
