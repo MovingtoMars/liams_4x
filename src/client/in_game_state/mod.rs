@@ -321,7 +321,6 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 let y_shift = (self.mouse_y - self.mouse_y / factor) / old_zoom;
 
                 // adjust offset so map at cursor is stationary
-                println!("{:?} {:?}", self.mouse_y, self.mouse_x); 
                 self.offset.x -= x_shift;
                 self.offset.y -= y_shift;
             }
