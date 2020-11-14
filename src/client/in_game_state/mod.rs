@@ -243,7 +243,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         hitboxes.insert(HitboxKey::Citizen(pos), Hitbox::citizen(pos));
                     }
                 }
-                let hovered = get_hovered_object(x, y, &self.zoom, &self.offset, &hitboxes);
+                let hovered = get_hovered_object(x, y, self.zoom, &self.offset, &hitboxes);
 
                 if let MouseButton::Left = button {
                     if let Some(ref drag) = self.current_drag {

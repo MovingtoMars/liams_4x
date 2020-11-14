@@ -104,7 +104,7 @@ impl InGameState {
         }
 
         let offset = CENTER_OFFSET;
-        let zoom = mint::Point2 { x: self.zoom, y: self.zoom };
+        let scale = mint::Point2 { x: self.zoom, y: self.zoom };
         dest_point.x += TILE_WIDTH * offset.x * self.zoom;
         dest_point.y += TILE_HEIGHT * offset.y * self.zoom;
 
@@ -113,7 +113,7 @@ impl InGameState {
             .dest(dest_point)
             .offset(offset)
             .rotation(rotation)
-            .scale(zoom);
+            .scale(scale);
 
         if let Some(color) = color {
             params = params.color(color);
@@ -141,8 +141,8 @@ impl InGameState {
         };
         let src = get_citizen_image_src_rect(sprite_index);
 
-        let zoom = mint::Point2 { x: self.zoom, y: self.zoom };
-        let params = DrawParam::default().dest(dest_center).src(src).offset(CENTER_OFFSET).scale(zoom);
+        let scale = mint::Point2 { x: self.zoom, y: self.zoom };
+        let params = DrawParam::default().dest(dest_center).src(src).offset(CENTER_OFFSET).scale(scale);
 
         graphics::draw(ctx, &self.citizen_sprites, params).unwrap();
     }
@@ -211,8 +211,8 @@ impl InGameState {
                     y: dest_center.y + (YIELD_ICON_WIDTH * offset.y + extra_y) * self.zoom,
                 };
 
-                let zoom = mint::Point2 { x: self.zoom, y: self.zoom };
-                let params = DrawParam::default().dest(dest).src(src).offset(CENTER_OFFSET).scale(zoom);
+                let scale = mint::Point2 { x: self.zoom, y: self.zoom };
+                let params = DrawParam::default().dest(dest).src(src).offset(CENTER_OFFSET).scale(scale);
 
                 graphics::draw(ctx, &self.yield_sprites, params).unwrap();
             }
