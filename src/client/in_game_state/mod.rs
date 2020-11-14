@@ -39,6 +39,9 @@ pub struct InGameState {
     citizen_sprites: Image,
     world: GameWorld,
     offset: Translation<f32>,
+    zoom: f32,
+    mouse_x: f32,
+    mouse_y: f32,
     current_drag: Option<Drag>,
     selected: Option<SelectedObject>,
     // TODO turn this into a ncollide world
@@ -85,6 +88,9 @@ impl InGameState {
             citizen_sprites: Image::new(ctx, "/sprites/citizens.png").unwrap(),
             world,
             offset,
+            zoom:1.0,
+            mouse_x:0.0,
+            mouse_y:0.0,
             current_drag: None,
             selected: None,
             hitboxes,
@@ -217,6 +223,8 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     self.offset.x += dx;
                     self.offset.y += dy;
                 }
+                self.mouse_x = x - 0.5 * TILE_WIDTH;
+                self.mouse_y = y - 0.5 * TILE_HEIGHT; // is there a better way to do this? at the moment this offset is used twice but separately defined?
             }
             InputEvent::MouseDownEvent { button, x, y } => {
                 if let MouseButton::Left = button {
@@ -232,7 +240,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         hitboxes.insert(HitboxKey::Citizen(pos), Hitbox::citizen(pos));
                     }
                 }
-                let hovered = get_hovered_object(x, y, &self.offset, &hitboxes);
+                let hovered = get_hovered_object(x, y, &self.zoom, &self.offset, &hitboxes);
 
                 if let MouseButton::Left = button {
                     if let Some(ref drag) = self.current_drag {
@@ -292,7 +300,15 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
             }
             InputEvent::ScrollEvent { x: _x, y: _y } => {
+                let factor = 1.1_f32.powf(_y);
+                let x_shift = (self.mouse_x - self.mouse_x / factor) / self.zoom;
+                let y_shift = (self.mouse_y - self.mouse_y / factor) / self.zoom;
+                self.zoom *= factor; // round?
 
+                // adjust offset so map at cursor is stationary
+                println!("{:?} {:?}", self.mouse_y, self.mouse_x); 
+                self.offset.x -= x_shift;
+                self.offset.y -= y_shift;
             }
             InputEvent::Quit => {
                 self.quitting = true;
