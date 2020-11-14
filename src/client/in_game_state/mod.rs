@@ -33,6 +33,9 @@ use super::hitbox::{Hitbox, HitboxKey, get_hovered_object};
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
+const ZOOM_MIN: f32 = 0.5;
+const ZOOM_MAX: f32 = 2.0;
+
 pub struct InGameState {
     tile_sprites: Image,
     yield_sprites: Image,
@@ -218,7 +221,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
         match event {
             InputEvent::MouseMotionEvent { x, y } => {
                 if let Some(ref mut drag) = self.current_drag {
-                    let (dx, dy) = drag.get_map_offset_delta(x, y);
+                    let (dx, dy) = drag.get_map_offset_delta(x, y, self.zoom);
 
                     self.offset.x += dx;
                     self.offset.y += dy;
@@ -300,10 +303,21 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
             }
             InputEvent::ScrollEvent { x: _x, y: _y } => {
-                let factor = 1.1_f32.powf(_y);
+                let mut factor = 1.1_f32.powf(_y);
+                self.zoom *= factor;
+
+                if self.zoom < ZOOM_MIN {
+                    factor *= ZOOM_MIN/self.zoom;
+                    self.zoom = ZOOM_MIN;
+                }
+
+                if self.zoom > ZOOM_MAX {
+                    factor *= ZOOM_MAX/self.zoom;
+                    self.zoom = ZOOM_MAX;
+                }
+
                 let x_shift = (self.mouse_x - self.mouse_x / factor) / self.zoom;
                 let y_shift = (self.mouse_y - self.mouse_y / factor) / self.zoom;
-                self.zoom *= factor; // round?
 
                 // adjust offset so map at cursor is stationary
                 println!("{:?} {:?}", self.mouse_y, self.mouse_x); 
