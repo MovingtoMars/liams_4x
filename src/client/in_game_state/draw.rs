@@ -105,8 +105,8 @@ impl InGameState {
 
         let offset = CENTER_OFFSET;
         let zoom = mint::Point2 { x: self.zoom, y: self.zoom };
-        dest_point.x += TILE_WIDTH * offset.x;
-        dest_point.y += TILE_HEIGHT * offset.y;
+        dest_point.x += TILE_WIDTH * offset.x * self.zoom;
+        dest_point.y += TILE_HEIGHT * offset.y * self.zoom;
 
         let mut params = DrawParam::default()
             .src(get_tile_image_src_rect(sprite_index))
@@ -126,8 +126,8 @@ impl InGameState {
         let dest_center = self.offset * get_tile_window_pos(pos);
         // TODO put this in a function
         let dest_center = mint::Point2 {
-            x: (dest_center.x * self.zoom + TILE_WIDTH * 0.5),
-            y: (dest_center.y * self.zoom + TILE_HEIGHT * 0.5),
+            x: (dest_center.x + TILE_WIDTH * 0.5) * self.zoom,
+            y: (dest_center.y + TILE_HEIGHT * 0.5) * self.zoom,
         };
 
         if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
@@ -150,8 +150,8 @@ impl InGameState {
     pub(super) fn draw_yields(&self, ctx: &mut Context, pos: TilePosition, yields: Yields) {
         let dest_center = self.offset * get_tile_window_pos(pos);
         let dest_center = mint::Point2 {
-            x: (dest_center.x * self.zoom + TILE_WIDTH * 0.5),
-            y: (dest_center.y * self.zoom + TILE_HEIGHT * 0.70),
+            x: (dest_center.x + TILE_WIDTH * 0.5) * self.zoom,
+            y: (dest_center.y + TILE_HEIGHT * 0.70) * self.zoom,
         };
 
         if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
@@ -207,8 +207,8 @@ impl InGameState {
                 };
 
                 let dest = mint::Point2 {
-                    x: dest_center.x - (total_width / 2.0 + YIELD_ICON_WIDTH * offset.x - x_start_offset - extra_x) * self.zoom,
-                    y: dest_center.y + YIELD_ICON_WIDTH * offset.y + extra_y * self.zoom,
+                    x: dest_center.x - (total_width / 2.0 - YIELD_ICON_WIDTH * offset.x - x_start_offset - extra_x) * self.zoom,
+                    y: dest_center.y + (YIELD_ICON_WIDTH * offset.y + extra_y) * self.zoom,
                 };
 
                 let zoom = mint::Point2 { x: self.zoom, y: self.zoom };

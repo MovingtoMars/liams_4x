@@ -223,8 +223,8 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                     self.offset.x += dx;
                     self.offset.y += dy;
                 }
-                self.mouse_x = x - 0.5 * TILE_WIDTH;
-                self.mouse_y = y - 0.5 * TILE_HEIGHT; // is there a better way to do this? at the moment this offset is used twice but separately defined?
+                self.mouse_x = x;
+                self.mouse_y = y;
             }
             InputEvent::MouseDownEvent { button, x, y } => {
                 if let MouseButton::Left = button {
