@@ -107,10 +107,11 @@ pub enum HitboxKey {
 pub fn get_hovered_object<'a>(
     mouse_window_x: f32,
     mouse_window_y: f32,
+    zoom: f32,
     map_offset: &Translation<f32>,
     hitboxes: &HashMap<HitboxKey, Hitbox>,
 ) -> Option<HitboxKey> {
-    let point = map_offset.inverse() * Point::new(mouse_window_x, mouse_window_y);
+    let point = map_offset.inverse() * Point::new(mouse_window_x / zoom, mouse_window_y / zoom);
 
     let mut result: Option<(HitboxKey, f32)> = None;
 

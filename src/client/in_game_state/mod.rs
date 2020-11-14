@@ -33,12 +33,18 @@ use super::hitbox::{Hitbox, HitboxKey, get_hovered_object};
 use super::selected_object::SelectedObject;
 use super::utils::get_tile_window_pos;
 
+const ZOOM_MIN: f32 = 0.5;
+const ZOOM_MAX: f32 = 2.0;
+
 pub struct InGameState {
     tile_sprites: Image,
     yield_sprites: Image,
     citizen_sprites: Image,
     world: GameWorld,
     offset: Translation<f32>,
+    zoom: f32,
+    mouse_x: f32,
+    mouse_y: f32,
     current_drag: Option<Drag>,
     selected: Option<SelectedObject>,
     // TODO turn this into a ncollide world
@@ -85,6 +91,9 @@ impl InGameState {
             citizen_sprites: Image::new(ctx, "/sprites/citizens.png").unwrap(),
             world,
             offset,
+            zoom:1.0,
+            mouse_x:0.0,
+            mouse_y:0.0,
             current_drag: None,
             selected: None,
             hitboxes,
@@ -212,11 +221,13 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
         match event {
             InputEvent::MouseMotionEvent { x, y } => {
                 if let Some(ref mut drag) = self.current_drag {
-                    let (dx, dy) = drag.get_map_offset_delta(x, y);
+                    let (dx, dy) = drag.get_map_offset_delta(x, y, self.zoom);
 
                     self.offset.x += dx;
                     self.offset.y += dy;
                 }
+                self.mouse_x = x;
+                self.mouse_y = y;
             }
             InputEvent::MouseDownEvent { button, x, y } => {
                 if let MouseButton::Left = button {
@@ -232,7 +243,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                         hitboxes.insert(HitboxKey::Citizen(pos), Hitbox::citizen(pos));
                     }
                 }
-                let hovered = get_hovered_object(x, y, &self.offset, &hitboxes);
+                let hovered = get_hovered_object(x, y, self.zoom, &self.offset, &hitboxes);
 
                 if let MouseButton::Left = button {
                     if let Some(ref drag) = self.current_drag {
@@ -292,7 +303,26 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
 
             }
             InputEvent::ScrollEvent { x: _x, y: _y } => {
+                let mut factor = 1.1_f32.powf(_y);
+                let old_zoom = self.zoom;
+                self.zoom *= factor;
 
+                if self.zoom < ZOOM_MIN {
+                    factor *= ZOOM_MIN/self.zoom;
+                    self.zoom = ZOOM_MIN;
+                }
+
+                if self.zoom > ZOOM_MAX {
+                    factor *= ZOOM_MAX/self.zoom;
+                    self.zoom = ZOOM_MAX;
+                }
+
+                let x_shift = (self.mouse_x - self.mouse_x / factor) / old_zoom;
+                let y_shift = (self.mouse_y - self.mouse_y / factor) / old_zoom;
+
+                // adjust offset so map at cursor is stationary
+                self.offset.x -= x_shift;
+                self.offset.y -= y_shift;
             }
             InputEvent::Quit => {
                 self.quitting = true;

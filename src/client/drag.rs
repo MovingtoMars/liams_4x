@@ -24,9 +24,9 @@ impl Drag {
     }
 
     // TODO change to translation?
-    pub fn get_map_offset_delta(&mut self, mouse_x: f32, mouse_y: f32) -> (f32, f32) {
-        let delta_x = mouse_x - self.cur_x;
-        let delta_y = mouse_y - self.cur_y;
+    pub fn get_map_offset_delta(&mut self, mouse_x: f32, mouse_y: f32, zoom: f32) -> (f32, f32) {
+        let delta_x = (mouse_x - self.cur_x) / zoom;
+        let delta_y = (mouse_y - self.cur_y) / zoom;
 
         // println!("mouse {}, {}  cur {}, {}  delta {}, {}", mouse_x, mouse_y, self.cur_x, self.cur_y, delta_x, delta_y);
 

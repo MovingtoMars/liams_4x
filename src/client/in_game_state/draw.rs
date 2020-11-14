@@ -97,21 +97,23 @@ impl InGameState {
 
     pub(super) fn draw(&self, ctx: &mut Context, pos: TilePosition, sprite_index: usize, color: Option<graphics::Color>, rotation: f32) {
         let dest_point = self.offset * get_tile_window_pos(pos);
-        let mut dest_point = mint::Point2 { x: dest_point.x, y: dest_point.y };
+        let mut dest_point = mint::Point2 { x: dest_point.x * self.zoom, y: dest_point.y * self.zoom };
 
-        if !self.in_drawable_bounds(dest_point, TILE_WIDTH, TILE_HEIGHT) {
+        if !self.in_drawable_bounds(dest_point, TILE_WIDTH * self.zoom, TILE_HEIGHT * self.zoom) {
             return;
         }
 
         let offset = CENTER_OFFSET;
-        dest_point.x += TILE_WIDTH * offset.x;
-        dest_point.y += TILE_HEIGHT * offset.y;
+        let scale = mint::Point2 { x: self.zoom, y: self.zoom };
+        dest_point.x += TILE_WIDTH * offset.x * self.zoom;
+        dest_point.y += TILE_HEIGHT * offset.y * self.zoom;
 
         let mut params = DrawParam::default()
             .src(get_tile_image_src_rect(sprite_index))
             .dest(dest_point)
             .offset(offset)
-            .rotation(rotation);
+            .rotation(rotation)
+            .scale(scale);
 
         if let Some(color) = color {
             params = params.color(color);
@@ -124,11 +126,11 @@ impl InGameState {
         let dest_center = self.offset * get_tile_window_pos(pos);
         // TODO put this in a function
         let dest_center = mint::Point2 {
-            x: dest_center.x + TILE_WIDTH * 0.5,
-            y: dest_center.y + TILE_HEIGHT * 0.5,
+            x: (dest_center.x + TILE_WIDTH * 0.5) * self.zoom,
+            y: (dest_center.y + TILE_HEIGHT * 0.5) * self.zoom,
         };
 
-        if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
+        if !self.in_drawable_bounds(dest_center, TILE_WIDTH * self.zoom, TILE_HEIGHT * self.zoom) {
             return;
         }
 
@@ -139,7 +141,8 @@ impl InGameState {
         };
         let src = get_citizen_image_src_rect(sprite_index);
 
-        let params = DrawParam::default().dest(dest_center).src(src).offset(CENTER_OFFSET);
+        let scale = mint::Point2 { x: self.zoom, y: self.zoom };
+        let params = DrawParam::default().dest(dest_center).src(src).offset(CENTER_OFFSET).scale(scale);
 
         graphics::draw(ctx, &self.citizen_sprites, params).unwrap();
     }
@@ -147,11 +150,11 @@ impl InGameState {
     pub(super) fn draw_yields(&self, ctx: &mut Context, pos: TilePosition, yields: Yields) {
         let dest_center = self.offset * get_tile_window_pos(pos);
         let dest_center = mint::Point2 {
-            x: dest_center.x + TILE_WIDTH * 0.5,
-            y: dest_center.y + TILE_HEIGHT * 0.70,
+            x: (dest_center.x + TILE_WIDTH * 0.5) * self.zoom,
+            y: (dest_center.y + TILE_HEIGHT * 0.70) * self.zoom,
         };
 
-        if !self.in_drawable_bounds(dest_center, TILE_WIDTH, TILE_HEIGHT) {
+        if !self.in_drawable_bounds(dest_center, TILE_WIDTH * self.zoom, TILE_HEIGHT * self.zoom) {
             return;
         }
 
@@ -204,11 +207,12 @@ impl InGameState {
                 };
 
                 let dest = mint::Point2 {
-                    x: dest_center.x - total_width / 2.0 + YIELD_ICON_WIDTH * offset.x + x_start_offset + extra_x,
-                    y: dest_center.y + YIELD_ICON_WIDTH * offset.y + extra_y,
+                    x: dest_center.x - (total_width / 2.0 - YIELD_ICON_WIDTH * offset.x - x_start_offset - extra_x) * self.zoom,
+                    y: dest_center.y + (YIELD_ICON_WIDTH * offset.y + extra_y) * self.zoom,
                 };
 
-                let params = DrawParam::default().dest(dest).src(src).offset(CENTER_OFFSET);
+                let scale = mint::Point2 { x: self.zoom, y: self.zoom };
+                let params = DrawParam::default().dest(dest).src(src).offset(CENTER_OFFSET).scale(scale);
 
                 graphics::draw(ctx, &self.yield_sprites, params).unwrap();
             }
@@ -345,7 +349,7 @@ impl InGameState {
             imgui::Window::new(&ImString::new(format!("city for tile {}", city.position())))
                 .no_decoration()
                 // .size([50.0, 30.0], imgui::Condition::Always)
-                .position([dest_point.x + (TILE_WIDTH - width) / 2.0 - 5.0, dest_point.y], imgui::Condition::Always)
+                .position([dest_point.x * self.zoom  + (TILE_WIDTH * self.zoom - width) / 2.0 - 5.0, dest_point.y * self.zoom], imgui::Condition::Always)
                 .always_auto_resize(true)
                 .draw_background(false)
                 .build(&rc.ui, || {
