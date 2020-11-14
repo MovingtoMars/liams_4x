@@ -44,6 +44,8 @@ pub struct City {
     // Generated from territory and cached for perf
     pub (in crate::common) borders: Vec<EdgePosition>,
 
+    turns_until_territory_growth: isize,
+
     yields: Yields,
 
     accumulated_food: Yield,
@@ -51,10 +53,16 @@ pub struct City {
 }
 
 impl City {
-    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, world: &GameWorld) -> Self {
+    const TERRITORY_EXPAND_TURNS: isize = 6;
+
+    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, map: &mut GameMap) -> Self {
         let mut territory = BTreeMap::new();
-        for (pos, _) in position.neighbors_at_distance(world.map.width(), world.map.height(), 1, true) {
-            territory.insert(pos, None);
+        for (pos, _) in position.neighbors_at_distance(map.width(), map.height(), 1, true) {
+            let mut tile = map.tile_mut(pos);
+            if tile.territory_of.is_none() {
+                tile.territory_of = Some(id);
+                territory.insert(pos, None);
+            }
         }
 
         let mut city = City {
@@ -65,6 +73,7 @@ impl City {
             population: 1,
             producing: None,
             territory,
+            turns_until_territory_growth: Self::TERRITORY_EXPAND_TURNS,
 
             // Calculated in the update() call below
             borders: vec![],
@@ -72,7 +81,7 @@ impl City {
             accumulated_food: 0.0,
             required_food_for_population_increase: 0.0,
         };
-        city.update(&world.map);
+        city.update(map);
         city
     }
 
@@ -100,6 +109,10 @@ impl City {
         }
 
         self.accumulated_food += self.yields.food;
+
+        if self.turns_until_territory_growth > 0 {
+            self.turns_until_territory_growth -= 1;
+        }
     }
 
     pub fn accumulated_food(&self) -> Yield {
@@ -116,6 +129,38 @@ impl City {
 
     pub fn can_increase_population_from_food(&self) -> bool {
         self.accumulated_food >= self.required_food_for_population_increase
+    }
+
+    pub fn ready_to_grow_territory(&self) -> bool {
+        self.turns_until_territory_growth <= 0
+    }
+
+    pub fn next_tile_to_expand_to(&self, map: &GameMap) -> Option<TilePosition> {
+        for distance in 2..=3 {
+            let mut tiles_at_distance: Vec<_> = self.position.neighbors_at_distance(map.width(), map.height(), distance, false)
+                .keys()
+                .map(|pos| *pos)
+                .filter(|pos| map.tile(*pos).territory_of.is_none())
+                .collect();
+
+            tiles_at_distance.sort_by(|a, b| map.cmp_tile_yields_decreasing(*a, *b));
+
+            if let Some(tile) = tiles_at_distance.first() {
+                return Some(*tile);
+            }
+        }
+        None
+    }
+
+    pub fn turns_until_territory_growth(&self) -> isize {
+        self.turns_until_territory_growth
+    }
+
+    pub fn grow_territory(&mut self, position: TilePosition, map: &mut GameMap) {
+        self.territory.insert(position, None);
+        map.tile_mut(position).territory_of = Some(self.id);
+        self.update(map);
+        self.turns_until_territory_growth = Self::TERRITORY_EXPAND_TURNS;
     }
 
     pub(in crate::common) fn increase_population_from_food(&mut self, map: &GameMap) {
@@ -170,7 +215,7 @@ impl City {
             .map(|(pos, _)| *pos)
             .collect();
 
-        unworked_tiles.sort_by(|a, b| map.tile(*b).yields().total().partial_cmp(&map.tile(*a).yields().total()).unwrap());
+        unworked_tiles.sort_by(|a, b| map.cmp_tile_yields_decreasing(*a, *b));
 
         for i in 0..self.unemployed_citizen_count() {
             if let Some(unworked_pos) = unworked_tiles.get(i as usize) {

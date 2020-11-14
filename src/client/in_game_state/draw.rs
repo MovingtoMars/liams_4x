@@ -540,6 +540,14 @@ impl InGameState {
                             city.required_food_for_population_increase(),
                             city.turns_until_population_increase(),
                         ));
+                        if city.next_tile_to_expand_to(&self.world.map).is_some() {
+                            rc.ui.text(format!(
+                                "{} turns until territory expansion",
+                                city.turns_until_territory_growth(),
+                            ));
+                        } else {
+                            rc.ui.text(format!("No longer expanding territory"));
+                        }
                         rc.ui.text(format!("Unemployed citizens: {}", city.unemployed_citizen_count()));
 
                         rc.ui.spacing();

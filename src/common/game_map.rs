@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
@@ -37,6 +38,7 @@ pub enum GameEventType {
     SetSleeping { unit_id: UnitId, sleeping: bool },
     SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
     IncreasePopulationFromFood { city_id: CityId },
+    AddTerritoryToCity { city_id: CityId, position: TilePosition },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -61,6 +63,7 @@ impl GameMap {
                     units: BTreeMap::new(),
                     rivers: BTreeSet::new(),
                     city: None,
+                    territory_of: None,
                     resource: None,
                     vegetation: None,
                 });
@@ -166,6 +169,12 @@ impl GameMap {
             }
         }
         None
+    }
+
+    pub fn cmp_tile_yields_decreasing(&self, a: TilePosition, b: TilePosition) -> Ordering {
+        let a_yields = self.tile(a).yields().total();
+        let b_yields = self.tile(b).yields().total();
+        b_yields.partial_cmp(&a_yields).unwrap()
     }
 }
 
@@ -274,7 +283,7 @@ impl GameWorld {
         let id = self.city_id_generator.next();
         let name = self.city_name_generator.next();
 
-        let city = City::new(id, owner, position, name, self);
+        let city = City::new(id, owner, position, name, &mut self.map);
 
         self.map.tile_mut(position).city = Some(id);
         self.cities.insert(id, city);
@@ -311,6 +320,17 @@ impl GameWorld {
                     let event = GameEventType::IncreasePopulationFromFood { city_id };
                     self.apply_event(&event);
                     result.push(event);
+                }
+            }
+
+            {
+                let city = self.cities.get_mut(&city_id).unwrap();
+                if city.ready_to_grow_territory() {
+                    if let Some(position) = city.next_tile_to_expand_to(&self.map) {
+                        let event = GameEventType::AddTerritoryToCity { city_id, position };
+                        self.apply_event(&event);
+                        result.push(event);
+                    }
                 }
             }
 
@@ -485,6 +505,10 @@ impl GameWorld {
             GameEventType::IncreasePopulationFromFood { city_id } => {
                 let city = self.cities.get_mut(city_id).unwrap();
                 city.increase_population_from_food(&self.map);
+            }
+            GameEventType::AddTerritoryToCity { city_id, position } => {
+                let city = self.cities.get_mut(city_id).unwrap();
+                city.grow_territory(*position, &mut self.map);
             }
         }
     }

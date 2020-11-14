@@ -57,6 +57,7 @@ pub struct Tile {
 
     pub units: BTreeMap<UnitType, UnitId>,
     pub city: Option<CityId>,
+    pub territory_of: Option<CityId>,
 
     pub rivers: BTreeSet<TileEdge>,
 
