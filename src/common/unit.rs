@@ -45,7 +45,13 @@ pub struct UnitTemplate {
     pub name: String,
     pub movement: MapUnit,
     pub abilities: Vec<UnitAbility>,
-    pub production_cost: i16,
+    pub production_cost: Yield,
+}
+
+impl UnitTemplate {
+    pub fn turn_cost(&self, production: Yield) -> usize {
+        (self.production_cost / production).ceil() as usize
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -62,14 +68,14 @@ impl UnitTemplateManager {
                 name: "Settler".into(),
                 movement: 2,
                 abilities: vec![UnitAbility::Settle],
-                production_cost: 30,
+                production_cost: 20.0,
             },
             warrior: UnitTemplate {
                 unit_type: UnitType::Soldier,
                 name: "Warrior".into(),
                 movement: 2,
                 abilities: vec![],
-                production_cost: 21,
+                production_cost: 14.0,
             },
         }
     }

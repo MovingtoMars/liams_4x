@@ -36,6 +36,7 @@ pub enum GameEventType {
     Crash { message: String },
     SetSleeping { unit_id: UnitId, sleeping: bool },
     SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
+    IncreasePopulationFromFood { city_id: CityId },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -273,9 +274,7 @@ impl GameWorld {
         let id = self.city_id_generator.next();
         let name = self.city_name_generator.next();
 
-        let mut city = City::new(id, owner, position, name, self);
-
-        city.on_turn_start();
+        let city = City::new(id, owner, position, name, self);
 
         self.map.tile_mut(position).city = Some(id);
         self.cities.insert(id, city);
@@ -306,6 +305,15 @@ impl GameWorld {
 
         let city_keys = self.cities.keys().map(|k| *k).collect::<Vec<_>>();
         for city_id in city_keys {
+            {
+                let city = self.cities.get_mut(&city_id).unwrap();
+                if city.can_increase_population_from_food() {
+                    let event = GameEventType::IncreasePopulationFromFood { city_id };
+                    self.apply_event(&event);
+                    result.push(event);
+                }
+            }
+
             let finished_unit = {
                 let city = self.cities.get(&city_id).unwrap();
 
@@ -459,7 +467,7 @@ impl GameWorld {
                 self.players.get_mut(player_id).unwrap().ready = *ready;
             }
             GameEventType::SetProducing { city_id, producing } => {
-                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|unit| Some((unit, 0)));
+                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|unit| Some((unit, 0.0)));
             }
             GameEventType::NewUnit { template, owner, position, unit_id } => {
                 self.new_unit(*unit_id, &template, *owner, *position);
@@ -472,8 +480,11 @@ impl GameWorld {
             }
             GameEventType::SetCitizenLocked { city_id, position, locked } => {
                 let city = self.cities.get_mut(city_id).unwrap();
-                city.set_citizen_locked(*position, *locked);
-                city.update(&self.map);
+                city.set_citizen_locked(*position, *locked, &self.map);
+            }
+            GameEventType::IncreasePopulationFromFood { city_id } => {
+                let city = self.cities.get_mut(city_id).unwrap();
+                city.increase_population_from_food(&self.map);
             }
         }
     }
@@ -493,7 +504,7 @@ impl GameWorld {
 
     fn on_turn_start(&mut self) {
         for city in self.cities.values_mut() {
-            city.on_turn_start();
+            city.on_turn_start(&self.map);
         }
 
         for unit in self.units.values_mut() {

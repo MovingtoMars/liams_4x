@@ -173,6 +173,7 @@ impl InGameState {
             (SPRITE_YIELD_SCIENCE, yields.science),
         ];
         for &(sprite_index, yield_value) in yield_types {
+            let yield_value = yield_value as usize;
             if yield_value > 0 {
                 let width = yields_width_for_type(yield_value);
                 yield_calc.push((sprite_index, yield_value, total_width, width));
@@ -471,13 +472,13 @@ impl InGameState {
                         rc.ui.spacing();
 
                         let yields = tile.yields();
-                        if yields.food > 0 {
+                        if yields.food > 0.0 {
                             rc.ui.text(format!("{} food", yields.food));
                         }
-                        if yields.production > 0 {
+                        if yields.production > 0.0 {
                             rc.ui.text(format!("{} production", yields.production));
                         }
-                        if yields.science > 0 {
+                        if yields.science > 0.0 {
                             rc.ui.text(format!("{} science", yields.science));
                         }
                     },
@@ -533,6 +534,18 @@ impl InGameState {
                         rc.ui.separator();
                         rc.ui.spacing();
 
+                        rc.ui.text(format!(
+                            "Growth: {}/{:.2} ({} turns remaining)",
+                            city.accumulated_food(),
+                            city.required_food_for_population_increase(),
+                            city.turns_until_population_increase(),
+                        ));
+                        rc.ui.text(format!("Unemployed citizens: {}", city.unemployed_citizen_count()));
+
+                        rc.ui.spacing();
+                        rc.ui.separator();
+                        rc.ui.spacing();
+
                         let yields = city.yields();
 
                         rc.ui.text(format!("Population: {}", city.population()));
@@ -547,10 +560,10 @@ impl InGameState {
                             rc.ui.text(format!("Production: {}", producing_unit.name));
                             let production_remaining = producing_unit.production_cost - producing_progress;
                             rc.ui.text(format!(
-                                "{}/{}, {:.0} turns remaining",
+                                "{}/{} ({} turns remaining)",
                                 producing_progress,
                                 producing_unit.production_cost,
-                                (production_remaining as f32 / city.production() as f32).ceil(),
+                                (production_remaining as f32 / yields.production as f32).ceil() as usize,
                             ));
                         } else {
                             rc.ui.text("Production: None");
@@ -558,9 +571,16 @@ impl InGameState {
                         rc.ui.spacing();
                         rc.ui.separator();
                         rc.ui.spacing();
+
                         rc.ui.text(im_str!("Production List"));
                         for unit_template in self.world.unit_template_manager().all() {
-                            let label = format!("{}: {}", unit_template.name, unit_template.production_cost);
+                            let label = format!(
+                                "{}: {} ({} turns)",
+                                unit_template.name,
+                                unit_template.production_cost,
+                                unit_template.turn_cost(yields.production),
+                            );
+
                             let chose = rc.ui.button(&ImString::new(label), sidebar_button_size);
                             if chose {
                                 let action = GameActionType::SetProducing { city_id: *city_id, producing: Some(unit_template.clone()) };

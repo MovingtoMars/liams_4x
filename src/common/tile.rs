@@ -31,9 +31,9 @@ impl TileType {
 
     pub fn yields(self) -> Yields {
         match self {
-            Plains => Yields::default().with_food(2),
-            Mountain => Yields::default().with_science(1),
-            Ocean => Yields::default().with_food(1),
+            Plains => Yields::default().with_food(1.0),
+            Mountain => Yields::default().with_science(1.0),
+            Ocean => Yields::default().with_food(1.0),
             Desert => Yields::default(),
         }
     }
