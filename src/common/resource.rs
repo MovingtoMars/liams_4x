@@ -55,16 +55,29 @@ impl std::fmt::Display for ResourceType {
 }
 
 impl ResourceType {
-    pub fn yields(self) -> Yields {
-        match self {
-            Sheep => Yields::default().with_production(1.0),
-            Horses => Yields::default().with_production(1.0),
-            Gold => Yields::default().with_production(1.0),
-            Iron => Yields::default().with_production(1.0),
-            Silver => Yields::default().with_production(1.0),
-            Niter => Yields::default().with_production(1.0),
-            Coal => Yields::default().with_production(1.0),
-            Wheat => Yields::default().with_food(1.0),
+    pub fn yields(self, harvested: bool) -> Yields {
+        if !harvested {
+            match self {
+                Sheep => Yields::default().with_production(1.0),
+                Horses => Yields::default().with_production(2.0),
+                Gold => Yields::default().with_production(1.0),
+                Iron => Yields::default().with_production(1.0),
+                Silver => Yields::default().with_production(1.0),
+                Niter => Yields::default().with_production(1.0),
+                Coal => Yields::default().with_production(1.0),
+                Wheat => Yields::default().with_food(1.0),
+            }
+        } else {
+            match self {
+                Sheep => Yields::default().with_production(2.0),
+                Horses => Yields::default().with_production(3.0),
+                Gold => Yields::default().with_production(2.0),
+                Iron => Yields::default().with_production(2.0),
+                Silver => Yields::default().with_production(2.0),
+                Niter => Yields::default().with_production(2.0),
+                Coal => Yields::default().with_production(2.0),
+                Wheat => Yields::default().with_food(2.0),
+            }
         }
     }
 }

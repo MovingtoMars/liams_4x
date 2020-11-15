@@ -86,6 +86,10 @@ impl InGameState {
             };
             self.draw_tile_sprite(ctx, tile.position, sprite_index, None);
         }
+
+        if tile.harvested {
+            self.draw_tile_sprite(ctx, tile.position, SPRITE_HARVESTER, None);
+        }
     }
 
     pub(super) fn in_drawable_bounds(&self, dest_point: mint::Point2<f32>, width: f32, height: f32) -> bool {
@@ -505,6 +509,9 @@ impl InGameState {
                         rc.ui.text(format!("Type: {}", unit.unit_type()));
                         rc.ui.text(format!("Owner: {}", owner_name));
                         rc.ui.text(format!("Movement: {}/{}", unit.remaining_movement(), unit.total_movement()));
+                        if let Some((current, initial)) = unit.charges() {
+                            rc.ui.text(format!("Charges: {}/{}", current, initial));
+                        }
                         rc.ui.spacing();
                         rc.ui.spacing();
                         rc.ui.separator();
@@ -518,12 +525,23 @@ impl InGameState {
 
                         rc.ui.spacing();
 
-                        if unit.has_ability(UnitAbility::Settle) {
-                            // TODO disable button when can't settle
-                            let founding_city = rc.ui.button(im_str!("Found city"), sidebar_button_size);
-                            if founding_city {
-                                let action = GameActionType::FoundCity { unit_id: *unit_id };
-                                self.connection.send_message(MessageToServer::Action(action));
+                        for ability in unit.abilities() {
+                            match ability {
+                                UnitAbility::Settle => {
+                                    // TODO disable button when can't settle
+                                    let founding_city = rc.ui.button(im_str!("Found city"), sidebar_button_size);
+                                    if founding_city {
+                                        let action = GameActionType::FoundCity { unit_id: *unit_id };
+                                        self.connection.send_message(MessageToServer::Action(action));
+                                    }
+                                }
+                                UnitAbility::Harvest => {
+                                    let harvesting = rc.ui.button(im_str!("Harvest resource"), sidebar_button_size);
+                                    if harvesting {
+                                        let action = GameActionType::Harvest { unit_id: *unit_id };
+                                        self.connection.send_message(MessageToServer::Action(action));
+                                    }
+                                }
                             }
                         }
                     }

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 use crate::common::*;
@@ -36,10 +37,10 @@ impl UnitIdGenerator {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnitAbility {
     Settle,
-    ImproveTile,
+    Harvest,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -49,6 +50,7 @@ pub struct UnitTemplate {
     pub movement: MapUnit,
     pub abilities: BTreeSet<UnitAbility>,
     pub production_cost: Yield,
+    pub initial_charges: Option<usize>,
 }
 
 impl UnitTemplate {
@@ -73,13 +75,15 @@ impl UnitTemplateManager {
                 movement: 2,
                 abilities: vec![UnitAbility::Settle].into_iter().collect(),
                 production_cost: 20.0,
+                initial_charges: None,
             },
             worker: UnitTemplate {
                 unit_type: UnitType::Civilian,
                 name: "Worker".into(),
                 movement: 2,
-                abilities: vec![UnitAbility::ImproveTile].into_iter().collect(),
+                abilities: vec![UnitAbility::Harvest].into_iter().collect(),
                 production_cost: 15.0,
+                initial_charges: Some(3),
             },
             warrior: UnitTemplate {
                 unit_type: UnitType::Soldier,
@@ -87,6 +91,7 @@ impl UnitTemplateManager {
                 movement: 2,
                 abilities: vec![].into_iter().collect(),
                 production_cost: 14.0,
+                initial_charges: None,
             },
         }
     }
@@ -110,6 +115,8 @@ pub struct Unit {
     unit_type: UnitType,
     total_movement: MapUnit,
     abilities: BTreeSet<UnitAbility>,
+    // (current, initial)
+    charges: Option<(usize, usize)>,
     pub(in crate::common) sleeping: bool,
     pub(in crate::common) position: TilePosition,
     pub(in crate::common) remaining_movement: MapUnit,
@@ -125,6 +132,7 @@ impl Unit {
             total_movement: template.movement,
             name: template.name.clone(),
             abilities: template.abilities.clone(),
+            charges: template.initial_charges.map(|n| (n, n)),
 
             remaining_movement: 0,
             sleeping: false,
@@ -169,5 +177,41 @@ impl Unit {
 
     pub fn has_ability(&self, ability: UnitAbility) -> bool {
         self.abilities.contains(&ability)
+    }
+
+    pub fn abilities(&self) -> impl Iterator<Item = &UnitAbility> {
+        self.abilities.iter()
+    }
+
+    pub fn can_harvest(&self, cities: &BTreeMap<CityId, City>, map: &GameMap) -> bool {
+        let tile = map.tile(self.position);
+        let city = if let Some(city_id) = tile.territory_of {
+            cities.get(&city_id).unwrap()
+        } else {
+            return false;
+        };
+
+        self.has_ability(UnitAbility::Harvest)
+            && self.remaining_movement > 0
+            && !tile.harvested
+            && tile.resource.is_some()
+            && city.owner() == self.owner()
+            && self.charges.map(|(charges, _)| charges > 0).unwrap_or(true)
+    }
+
+    pub fn charges(&self) -> Option<(usize, usize)> {
+        self.charges
+    }
+
+    pub(in crate::common) fn use_charge(&mut self) {
+        if let Some((ref mut current, _)) = self.charges {
+            if *current == 0 {
+                panic!("called use_charge() on unit with charges = 0");
+            } else {
+                *current -= 1;
+            }
+        } else {
+            panic!("called use_charge() on unit with charges = None");
+        }
     }
 }

@@ -13,35 +13,6 @@ use crate::common::*;
 pub type MapUnit = i16;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum GameActionType {
-    MoveUnit { unit_id: UnitId, position: TilePosition },
-    FoundCity { unit_id: UnitId },
-    RenameCity { city_id: CityId, name: String },
-    SetReady(bool),
-    // TODO use UnitTemplateId
-    SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
-    SetSleeping { unit_id: UnitId, sleeping: bool },
-    SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum GameEventType {
-    NextTurn,
-    MoveUnit { unit_id: UnitId, position: TilePosition, remaining_movement: MapUnit },
-    DeleteUnit { unit_id: UnitId },
-    FoundCity { position: TilePosition, owner: CivilizationId },
-    RenameCity { city_id: CityId, name: String },
-    SetPlayerReady { player_id: PlayerId, ready: bool },
-    SetProducing { city_id: CityId, producing: Option<UnitTemplate> },
-    NewUnit { template: UnitTemplate, owner: CivilizationId, position: TilePosition, unit_id: UnitId },
-    Crash { message: String },
-    SetSleeping { unit_id: UnitId, sleeping: bool },
-    SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
-    IncreasePopulationFromFood { city_id: CityId },
-    AddTerritoryToCity { city_id: CityId, position: TilePosition },
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GameMap {
     // Number of tiles
     width: MapUnit,
@@ -66,6 +37,7 @@ impl GameMap {
                     territory_of: None,
                     resource: None,
                     vegetation: None,
+                    harvested: false,
                 });
             }
             tile_cols.push(tile_col);
@@ -394,8 +366,7 @@ impl GameWorld {
                         position: *position,
                         remaining_movement: unit.remaining_movement() - distance.unwrap(),
                     };
-                    self.apply_event(&event);
-                    result.push(event);
+                    result.push(self.apply_event_move(event));
                 }
             }
             GameActionType::FoundCity { unit_id } => {
@@ -417,14 +388,12 @@ impl GameWorld {
                     if self.player(actioner_id).unwrap().civilization_id() != city.owner() { return vec![] };
 
                     let event = GameEventType::RenameCity { city_id: *city_id, name: name.clone() };
-                    self.apply_event(&event);
-                    result.push(event);
+                    result.push(self.apply_event_move(event));
                 }
             }
             GameActionType::SetReady(ready) => {
                 let event = GameEventType::SetPlayerReady{ player_id: actioner_id, ready: *ready };
-                self.apply_event(&event);
-                result.push(event);
+                result.push(self.apply_event_move(event));
 
                 if self.players().all(|player| player.ready()) {
                     result.extend(self.next_turn());
@@ -435,16 +404,14 @@ impl GameWorld {
                 if self.player(actioner_id).unwrap().civilization_id() != city.owner() { return vec![] };
 
                 let event = GameEventType::SetProducing { city_id: *city_id, producing: producing.clone() };
-                self.apply_event(&event);
-                result.push(event);
+                result.push(self.apply_event_move(event));
             }
             GameActionType::SetSleeping { unit_id, sleeping } => {
                 let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return vec![] };
                 if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
 
                 let event = GameEventType::SetSleeping { unit_id: *unit_id, sleeping: *sleeping };
-                self.apply_event(&event);
-                result.push(event);
+                result.push(self.apply_event_move(event));
             }
             GameActionType::SetCitizenLocked { city_id, position, locked } => {
                 let city = if let Some(city) = self.city(*city_id) { city } else { return vec![] };
@@ -452,12 +419,36 @@ impl GameWorld {
                 if !city.territory().contains_key(position) { return vec![] };
 
                 let event = GameEventType::SetCitizenLocked { city_id: *city_id, position: *position, locked: *locked };
-                self.apply_event(&event);
-                result.push(event);
+                result.push(self.apply_event_move(event));
+            }
+            GameActionType::Harvest { unit_id } => {
+                let unit = if let Some(unit) = self.unit(*unit_id) { unit } else { return vec![] };
+                if self.player(actioner_id).unwrap().civilization_id() != unit.owner() { return vec![] };
+                if unit.can_harvest(&self.cities, &self.map) {
+                    let event = GameEventType::Harvest { position: unit.position() };
+                    result.push(self.apply_event_move(event));
+
+                    let event = GameEventType::DepleteMovement { unit_id: *unit_id };
+                    result.push(self.apply_event_move(event));
+
+                    let event = GameEventType::UseCharge { unit_id: *unit_id };
+                    result.push(self.apply_event_move(event));
+
+                    let unit = self.unit(*unit_id).unwrap();
+                    if unit.charges().unwrap().0 == 0 {
+                        let event = GameEventType::DeleteUnit { unit_id: *unit_id };
+                        result.push(self.apply_event_move(event));
+                    }
+                }
             }
         }
 
         result
+    }
+
+    pub fn apply_event_move(&mut self, event: GameEventType) -> GameEventType {
+        self.apply_event(&event);
+        event
     }
 
     pub fn apply_event(&mut self, event_type: &GameEventType) {
@@ -509,6 +500,15 @@ impl GameWorld {
             GameEventType::AddTerritoryToCity { city_id, position } => {
                 let city = self.cities.get_mut(city_id).unwrap();
                 city.grow_territory(*position, &mut self.map);
+            }
+            GameEventType::Harvest { position } => {
+                self.map.tile_mut(*position).harvested = true;
+            }
+            GameEventType::DepleteMovement { unit_id } => {
+                self.units.get_mut(unit_id).unwrap().remaining_movement = 0;
+            }
+            GameEventType::UseCharge { unit_id } => {
+                self.units.get_mut(unit_id).unwrap().use_charge();
             }
         }
     }

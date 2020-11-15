@@ -16,7 +16,7 @@ const CITY_NAMES: &[&str] = &[
     "Nelson",
     "Napier",
     "Queenstown",
-    "Porirui",
+    "Porirua",
     "Rotorua",
     "Hastings",
     "Upper Hutt",

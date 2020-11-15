@@ -9,6 +9,8 @@ mod resource;
 mod tile;
 mod city;
 mod yields;
+mod actions;
+mod events;
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -32,6 +34,8 @@ pub use resource::*;
 pub use tile::*;
 pub use city::*;
 pub use yields::*;
+pub use actions::*;
+pub use events::*;
 
 pub const SERVER_LISTEN: &str = "0.0.0.0:12351";
 pub const DEFAULT_SERVER: &str = "127.0.0.1:12351";

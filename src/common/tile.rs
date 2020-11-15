@@ -63,6 +63,8 @@ pub struct Tile {
 
     pub resource: Option<ResourceType>,
     pub vegetation: Option<Vegetation>,
+
+    pub harvested: bool,
 }
 
 impl Tile {
@@ -78,8 +80,10 @@ impl Tile {
     }
 
     pub fn yields(&self) -> Yields {
-        self.resource.map(|r| r.yields()).unwrap_or(Yields::default())
-            + self.vegetation.map(|v| v.yields()).unwrap_or(Yields::default())
-            + self.tile_type.yields()
+        let resource_yields = self.resource.map(|r| r.yields(self.harvested)).unwrap_or(Yields::default());
+        let vegetation_yields = self.vegetation.map(|v| v.yields()).unwrap_or(Yields::default());
+        let type_yields = self.tile_type.yields();
+
+        resource_yields + vegetation_yields + type_yields
     }
 }

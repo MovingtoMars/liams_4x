@@ -45,6 +45,8 @@ pub const SPRITE_RESOURCE_WHEAT: usize = 27;
 pub const SPRITE_SETTLER: usize = 30;
 pub const SPRITE_WORKER: usize = 31;
 
+pub const SPRITE_HARVESTER: usize = 40;
+
 pub const SPRITE_TILE_DESERT: usize = 70;
 
 // Yield spritesheet
