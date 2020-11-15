@@ -80,6 +80,9 @@ impl Tile {
     }
 
     pub fn yields(&self) -> Yields {
+        if self.city.is_some() {
+            return Yields::default().with_food(2.0).with_production(2.0);
+        }
         let resource_yields = self.resource.map(|r| r.yields(self.harvested)).unwrap_or(Yields::default());
         let vegetation_yields = self.vegetation.map(|v| v.yields()).unwrap_or(Yields::default());
         let type_yields = self.tile_type.yields();

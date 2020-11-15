@@ -64,6 +64,7 @@ impl City {
                 territory.insert(pos, None);
             }
         }
+        map.tile_mut(position).city = Some(id);
 
         let mut city = City {
             position,

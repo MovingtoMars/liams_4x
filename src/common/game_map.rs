@@ -257,7 +257,6 @@ impl GameWorld {
 
         let city = City::new(id, owner, position, name, &mut self.map);
 
-        self.map.tile_mut(position).city = Some(id);
         self.cities.insert(id, city);
         self.cities.get_mut(&id).unwrap()
     }
