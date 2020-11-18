@@ -22,6 +22,7 @@ use crate::common::{
     Citizen,
     Unit,
     UnitAbility,
+    ProducingItemId,
 };
 
 use super::InGameState;
@@ -458,6 +459,8 @@ impl InGameState {
             return;
         }
 
+        let mut hover_text = None;
+
         use imgui::*;
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
@@ -599,12 +602,12 @@ impl InGameState {
                         rc.ui.separator();
                         rc.ui.spacing();
                         if let Some((producing_unit, producing_progress)) = city.producing() {
-                            rc.ui.text(format!("Production: {}", producing_unit.name));
-                            let production_remaining = producing_unit.production_cost - producing_progress;
+                            rc.ui.text(format!("Production: {}", producing_unit.name()));
+                            let production_remaining = producing_unit.production_cost() - producing_progress;
                             rc.ui.text(format!(
                                 "{}/{} ({} turns remaining)",
                                 producing_progress,
-                                producing_unit.production_cost,
+                                producing_unit.production_cost(),
                                 (production_remaining as f32 / yields.production as f32).ceil() as usize,
                             ));
                         } else {
@@ -625,12 +628,64 @@ impl InGameState {
 
                             let chose = rc.ui.button(&ImString::new(label), sidebar_button_size);
                             if chose {
-                                let action = GameActionType::SetProducing { city_id: *city_id, producing: Some(unit_template.clone()) };
+                                let action = GameActionType::SetProducing {
+                                    city_id: *city_id,
+                                    producing: Some(ProducingItemId::Unit(unit_template.clone())),
+                                };
                                 self.connection.send_message(MessageToServer::Action(action));
+                            }
+                        }
+
+                        for building_type in city.producible_buildings() {
+                            let label = format!(
+                                "{}: {} ({} turns)",
+                                building_type.name,
+                                building_type.production_cost,
+                                building_type.turn_cost(yields.production),
+                            );
+
+                            let chose = rc.ui.button(&ImString::new(label), sidebar_button_size);
+                            if chose {
+                                let action = GameActionType::SetProducing {
+                                    city_id: *city_id,
+                                    producing: Some(ProducingItemId::Building(building_type.id)),
+                                };
+                                self.connection.send_message(MessageToServer::Action(action));
+                            }
+
+                            if rc.ui.is_item_hovered() {
+                                hover_text = Some(building_type.effect_info());
+                            }
+                        }
+
+                        rc.ui.spacing();
+                        rc.ui.separator();
+                        rc.ui.spacing();
+
+                        rc.ui.text("Buildings:");
+                        for building in city.buildings() {
+                            rc.ui.text(&building.name);
+                            if rc.ui.is_item_hovered() {
+                                hover_text = Some(building.effect_info());
                             }
                         }
                     }
                 }
             });
+
+        if let Some(hover_text) = hover_text {
+            let mint::Point2 { x: mouse_x, y: mouse_y } = ggez::input::mouse::position(ctx);
+            imgui::Window::new(im_str!("selected_subitem_hover"))
+                .always_auto_resize(true)
+                .position([mouse_x, mouse_y], imgui::Condition::Always)
+                .collapsible(false)
+                .movable(false)
+                .resizable(false)
+                .mouse_inputs(false)
+                .no_decoration()
+                .build(&rc.ui, || {
+                    rc.ui.text(hover_text);
+                });
+        }
     }
 }

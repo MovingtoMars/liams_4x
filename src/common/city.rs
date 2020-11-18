@@ -29,6 +29,55 @@ impl CityIdGenerator {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CityEffect {
+    AddYields { yields: Yields },
+    MulYields { yields: Yields },
+}
+
+impl CityEffect {
+    // Lower means applied earlier.
+    // TODO could implement Sort trait.
+    pub fn priority(&self) -> usize {
+        match self {
+            CityEffect::AddYields { .. } => 1,
+
+            CityEffect::MulYields { .. } => 2,
+        }
+    }
+
+    fn apply(&self, city: &mut City) {
+        match self {
+            CityEffect::AddYields { yields } => {
+                city.yields += *yields;
+            },
+
+            CityEffect::MulYields { yields } => {
+                city.yields *= *yields;
+            },
+        }
+    }
+}
+
+impl std::fmt::Display for CityEffect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CityEffect::AddYields { yields } => {
+                for (yield_, name) in yields.iter_non_zero() {
+                    write!(f, "+{} {}\n", yield_, name)?;
+                }
+            },
+
+            CityEffect::MulYields { yields } => {
+                for (yield_, name) in yields.iter_non_identity() {
+                    write!(f, "x{} {}\n", yield_, name)?;
+                }
+            },
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct City {
     pub (in crate::common) id: CityId,
     pub (in crate::common) owner: CivilizationId,
@@ -36,7 +85,7 @@ pub struct City {
     pub (in crate::common) name: String,
 
     // unit being produced and the amount of production put into it
-    pub (in crate::common) producing: Option<(UnitTemplate, Yield)>,
+    pub (in crate::common) producing: Option<(ProducingItem, Yield)>,
 
     pub (in crate::common) population: i16,
     // TODO make workable_territory
@@ -50,12 +99,18 @@ pub struct City {
 
     accumulated_food: Yield,
     required_food_for_population_increase: Yield,
+
+    // TODO should we use BuildingTypeId here?
+    buildings: BTreeMap<BuildingTypeId, BuildingType>,
+    producible_buildings: Vec<BuildingType>,
+
+    effects: Vec<CityEffect>,
 }
 
 impl City {
     const TERRITORY_EXPAND_TURNS: isize = 6;
 
-    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, map: &mut GameMap) -> Self {
+    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, map: &mut GameMap, building_types: &BuildingTypes) -> Self {
         let mut territory = BTreeMap::new();
         for (pos, _) in position.neighbors_at_distance(map.width(), map.height(), 1, true) {
             let mut tile = map.tile_mut(pos);
@@ -75,14 +130,17 @@ impl City {
             producing: None,
             territory,
             turns_until_territory_growth: Self::TERRITORY_EXPAND_TURNS,
+            buildings: BTreeMap::new(),
 
             // Calculated in the update() call below
             borders: vec![],
-            yields: Yields::default(),
+            yields: Yields::zero(),
             accumulated_food: 0.0,
             required_food_for_population_increase: 0.0,
+            producible_buildings: vec![],
+            effects: vec![],
         };
-        city.update(map);
+        city.update(map, building_types);
         city
     }
 
@@ -102,8 +160,8 @@ impl City {
         &self.name
     }
 
-    pub (in crate::common) fn on_turn_start(&mut self, map: &GameMap) {
-        self.update(map);
+    pub (in crate::common) fn on_turn_start(&mut self, map: &GameMap, building_types: &BuildingTypes) {
+        self.update(map, building_types);
 
         if let Some((_, ref mut spent)) = &mut self.producing {
             *spent += self.yields.production;
@@ -157,20 +215,20 @@ impl City {
         self.turns_until_territory_growth
     }
 
-    pub fn grow_territory(&mut self, position: TilePosition, map: &mut GameMap) {
+    pub fn grow_territory(&mut self, position: TilePosition, map: &mut GameMap, building_types: &BuildingTypes) {
         self.territory.insert(position, None);
         map.tile_mut(position).territory_of = Some(self.id);
-        self.update(map);
+        self.update(map, building_types);
         self.turns_until_territory_growth = Self::TERRITORY_EXPAND_TURNS;
     }
 
-    pub(in crate::common) fn increase_population_from_food(&mut self, map: &GameMap) {
+    pub(in crate::common) fn increase_population_from_food(&mut self, map: &GameMap, building_types: &BuildingTypes) {
         self.population += 1;
         self.accumulated_food = 0.0;
-        self.update(map);
+        self.update(map, building_types);
     }
 
-    pub fn producing(&self) -> &Option<(UnitTemplate, Yield)> {
+    pub fn producing(&self) -> &Option<(ProducingItem, Yield)> {
         &self.producing
     }
 
@@ -225,7 +283,7 @@ impl City {
         }
     }
 
-    pub (in crate::common) fn set_citizen_locked(&mut self, position: TilePosition, locked: bool, map: &GameMap) {
+    pub (in crate::common) fn set_citizen_locked(&mut self, position: TilePosition, locked: bool, map: &GameMap, building_types: &BuildingTypes) {
         if locked {
             if self.population == self.locked_citizen_count() {
                 let first_locked_citizen = self.territory.values_mut().find(|citizen| **citizen == Some(Citizen::Locked)).unwrap();
@@ -236,7 +294,7 @@ impl City {
             self.territory.insert(position, None);
         }
 
-        self.update(map);
+        self.update(map, building_types);
     }
 
     pub fn borders(&self) -> &[EdgePosition] {
@@ -244,25 +302,66 @@ impl City {
     }
 
     fn update_yields(&mut self, map: &GameMap) {
-        let pop_yields = Yields::default().with_science(self.population as f32);
+        let pop_yields = Yields::zero().with_science(self.population as f32);
         let tile_yields = self.territory
             .iter()
             .filter(|(pos, citizen)| **pos == self.position || citizen.is_some())
             .map(|(pos, _)| map.tile(*pos).yields())
-            .fold(Yields::default(), |y1, y2| y1 + y2);
+            .fold(Yields::zero(), |y1, y2| y1 + y2);
 
         self.yields = pop_yields + tile_yields;
     }
 
-    pub (in crate::common) fn update(&mut self, map: &GameMap) {
+    fn update_producible_buildings(&mut self, building_types: &BuildingTypes) {
+        self.producible_buildings = building_types
+            .all()
+            .filter(|building_type| !self.buildings.contains_key(&building_type.id))
+            .map(|building_type| building_type.clone())
+            .collect();
+    }
+
+    fn update_effects(&mut self) {
+        self.effects = self.buildings
+            .values()
+            .flat_map(|building| building.effects.iter())
+            .map(|effect| effect.clone())
+            .collect();
+
+        self.effects.sort_by_key(|effect| effect.priority());
+    }
+
+    fn apply_effects(&mut self) {
+        for effect in self.effects.clone() {
+            effect.apply(self);
+        }
+    }
+
+    // TODO maybe create CityUpdateArgs struct
+    pub (in crate::common) fn update(&mut self, map: &GameMap, building_types: &BuildingTypes) {
         self.update_borders_from_territory();
-        self.update_citizens(&map);
-        self.update_yields(&map);
+        self.update_citizens(map);
+        self.update_yields(map);
+        self.update_producible_buildings(building_types);
+        self.update_effects();
+        self.apply_effects();
 
         self.required_food_for_population_increase = 15.0 + 8.0 * (self.population as Yield - 1.0) + (self.population as Yield - 1.0).powf(1.5);
     }
 
     pub fn yields(&self) -> Yields {
         self.yields
+    }
+
+    pub(in crate::common) fn add_building(&mut self, building: BuildingType, map: &GameMap, building_types: &BuildingTypes) {
+        self.buildings.insert(building.id, building);
+        self.update(map, building_types);
+    }
+
+    pub fn buildings(&self) -> impl Iterator<Item = &BuildingType> {
+        self.buildings.values()
+    }
+
+    pub fn producible_buildings(&self) -> impl Iterator<Item = &BuildingType> {
+        self.producible_buildings.iter()
     }
 }

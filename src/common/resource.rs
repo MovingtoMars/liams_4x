@@ -21,8 +21,8 @@ impl std::fmt::Display for Vegetation {
 impl Vegetation {
     pub fn yields(self) -> Yields {
         match self {
-            Forest => Yields::default().with_production(1.0),
-            Jungle => Yields::default(),
+            Forest => Yields::zero().with_production(1.0),
+            Jungle => Yields::zero(),
         }
     }
 }
@@ -58,25 +58,25 @@ impl ResourceType {
     pub fn yields(self, harvested: bool) -> Yields {
         if !harvested {
             match self {
-                Sheep => Yields::default().with_production(1.0),
-                Horses => Yields::default().with_production(2.0),
-                Gold => Yields::default().with_production(1.0),
-                Iron => Yields::default().with_production(1.0),
-                Silver => Yields::default().with_production(1.0),
-                Niter => Yields::default().with_production(1.0),
-                Coal => Yields::default().with_production(1.0),
-                Wheat => Yields::default().with_food(1.0),
+                Sheep => Yields::zero().with_production(1.0),
+                Horses => Yields::zero().with_production(2.0),
+                Gold => Yields::zero().with_production(1.0),
+                Iron => Yields::zero().with_production(1.0),
+                Silver => Yields::zero().with_production(1.0),
+                Niter => Yields::zero().with_production(1.0),
+                Coal => Yields::zero().with_production(1.0),
+                Wheat => Yields::zero().with_food(1.0),
             }
         } else {
             match self {
-                Sheep => Yields::default().with_production(2.0),
-                Horses => Yields::default().with_production(3.0),
-                Gold => Yields::default().with_production(2.0),
-                Iron => Yields::default().with_production(2.0),
-                Silver => Yields::default().with_production(2.0),
-                Niter => Yields::default().with_production(2.0),
-                Coal => Yields::default().with_production(2.0),
-                Wheat => Yields::default().with_food(2.0),
+                Sheep => Yields::zero().with_production(2.0),
+                Horses => Yields::zero().with_production(3.0),
+                Gold => Yields::zero().with_production(2.0),
+                Iron => Yields::zero().with_production(2.0),
+                Silver => Yields::zero().with_production(2.0),
+                Niter => Yields::zero().with_production(2.0),
+                Coal => Yields::zero().with_production(2.0),
+                Wheat => Yields::zero().with_food(2.0),
             }
         }
     }

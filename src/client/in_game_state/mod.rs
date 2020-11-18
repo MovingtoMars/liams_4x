@@ -302,7 +302,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             InputEvent::TextInputEvent(_val) => {
 
             }
-            InputEvent::ScrollEvent { x: _x, y: y } => {
+            InputEvent::ScrollEvent { x: _x, y } => {
                 let mut factor = 1.1_f32.powf(y);
                 let old_zoom = self.zoom;
                 self.zoom *= factor;

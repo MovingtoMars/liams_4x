@@ -31,10 +31,10 @@ impl TileType {
 
     pub fn yields(self) -> Yields {
         match self {
-            Plains => Yields::default().with_food(1.0),
-            Mountain => Yields::default().with_science(1.0),
-            Ocean => Yields::default().with_food(1.0),
-            Desert => Yields::default(),
+            Plains => Yields::zero().with_food(1.0),
+            Mountain => Yields::zero().with_science(1.0),
+            Ocean => Yields::zero().with_food(1.0),
+            Desert => Yields::zero(),
         }
     }
 }
@@ -81,10 +81,10 @@ impl Tile {
 
     pub fn yields(&self) -> Yields {
         if self.city.is_some() {
-            return Yields::default().with_food(2.0).with_production(2.0);
+            return Yields::zero().with_food(2.0).with_production(2.0);
         }
-        let resource_yields = self.resource.map(|r| r.yields(self.harvested)).unwrap_or(Yields::default());
-        let vegetation_yields = self.vegetation.map(|v| v.yields()).unwrap_or(Yields::default());
+        let resource_yields = self.resource.map(|r| r.yields(self.harvested)).unwrap_or(Yields::zero());
+        let vegetation_yields = self.vegetation.map(|v| v.yields()).unwrap_or(Yields::zero());
         let type_yields = self.tile_type.yields();
 
         resource_yields + vegetation_yields + type_yields

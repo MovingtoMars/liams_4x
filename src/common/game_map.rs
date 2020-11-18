@@ -10,6 +10,35 @@ use serde::{Serialize, Deserialize};
 
 use crate::common::*;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ProducingItemId {
+    // TODO use UnitTemplateId
+    Unit(UnitTemplate),
+    Building(BuildingTypeId),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ProducingItem {
+    Unit(UnitTemplate),
+    Building(BuildingType),
+}
+
+impl ProducingItem {
+    pub fn name(&self) -> &str {
+        match self {
+            ProducingItem::Unit(unit) => &unit.name,
+            ProducingItem::Building(building) => &building.name,
+        }
+    }
+
+    pub fn production_cost(&self) -> Yield {
+        match self {
+            ProducingItem::Unit(unit) => unit.production_cost,
+            ProducingItem::Building(building) => building.production_cost,
+        }
+    }
+}
+
 pub type MapUnit = i16;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -166,6 +195,8 @@ pub struct GameWorld {
     civilization_id_generator: CivilizationIdGenerator,
 
     unit_template_manager: UnitTemplateManager,
+
+    building_types: BuildingTypes,
 }
 
 impl GameWorld {
@@ -182,6 +213,7 @@ impl GameWorld {
             city_id_generator: CityIdGenerator::new(),
             civilization_id_generator: CivilizationIdGenerator::new(),
             unit_template_manager: UnitTemplateManager::new(),
+            building_types: BuildingTypes::new(),
         };
 
         for init_player in init_players {
@@ -197,6 +229,11 @@ impl GameWorld {
         }
         self.turn += 1;
         self.on_turn_start();
+    }
+
+    #[allow(dead_code)]
+    pub fn building_types(&self) -> &BuildingTypes {
+        &self.building_types
     }
 
     pub fn unit_template_manager(&self) -> &UnitTemplateManager {
@@ -255,7 +292,7 @@ impl GameWorld {
         let id = self.city_id_generator.next();
         let name = self.city_name_generator.next();
 
-        let city = City::new(id, owner, position, name, &mut self.map);
+        let city = City::new(id, owner, position, name, &mut self.map, &self.building_types);
 
         self.cities.insert(id, city);
         self.cities.get_mut(&id).unwrap()
@@ -305,11 +342,11 @@ impl GameWorld {
                 }
             }
 
-            let finished_unit = {
+            let finished_production = {
                 let city = self.cities.get(&city_id).unwrap();
 
-                if let Some((unit, ref spent)) = &city.producing {
-                    if *spent >= unit.production_cost {
+                if let Some((producing, ref spent)) = &city.producing {
+                    if *spent >= producing.production_cost() {
                         Some(city.producing.clone().unwrap().0)
                     } else {
                         None
@@ -319,27 +356,35 @@ impl GameWorld {
                 }
             };
 
-            if let Some(template) = finished_unit {
-                let city = self.cities.get(&city_id).unwrap();
+            if let Some(finished_production) = finished_production {
+                match finished_production {
+                    ProducingItem::Unit(template) => {
+                        let city = self.cities.get(&city_id).unwrap();
 
-                let mut positions_to_try = vec![city.position];
-                positions_to_try.extend(city.position.direct_neighbors(self.map.width, self.map.height));
+                        let mut positions_to_try = vec![city.position];
+                        positions_to_try.extend(city.position.direct_neighbors(self.map.width, self.map.height));
 
-                let position = positions_to_try.into_iter()
-                    .find(|pos| self.map.tile(*pos).unit_can_reside(&template.unit_type));
+                        let position = positions_to_try.into_iter()
+                            .find(|pos| self.map.tile(*pos).unit_can_reside(&template.unit_type));
 
-                if let Some(position) = position {
-                    let owner = city.owner;
-                    let unit_id = self.next_unit_id();
-                    let event = GameEventType::NewUnit { unit_id, template, owner, position };
-                    self.apply_event(&event);
-                    result.push(event);
-                    let event = GameEventType::SetProducing { city_id, producing: None };
-                    self.apply_event(&event);
-                    result.push(event);
-                } else {
-                    let message = "Couldn't find an empty space beside city.";
-                    result.push(GameEventType::Crash { message: message.into() });
+                        if let Some(position) = position {
+                            let owner = city.owner;
+                            let unit_id = self.next_unit_id();
+                            let event = GameEventType::NewUnit { unit_id, template, owner, position };
+                            result.push(self.apply_event_move(event));
+                            let event = GameEventType::SetProducing { city_id, producing: None };
+                            result.push(self.apply_event_move(event));
+                        } else {
+                            let message = "Couldn't find an empty space beside city.";
+                            result.push(GameEventType::Crash { message: message.into() });
+                        }
+                    }
+                    ProducingItem::Building(building_type) => {
+                        let event = GameEventType::NewBuilding { building_type_id: building_type.id, city_id: city_id };
+                        result.push(self.apply_event_move(event));
+                        let event = GameEventType::SetProducing { city_id, producing: None };
+                        result.push(self.apply_event_move(event));
+                    }
                 }
             }
         }
@@ -477,10 +522,21 @@ impl GameWorld {
                 self.players.get_mut(player_id).unwrap().ready = *ready;
             }
             GameEventType::SetProducing { city_id, producing } => {
-                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|unit| Some((unit, 0.0)));
+                let producing = producing.as_ref().map(|producing| match producing {
+                    ProducingItemId::Unit(template) => {
+                        ProducingItem::Unit(template.clone())
+                    }
+                    ProducingItemId::Building(id) => {
+                        ProducingItem::Building(self.building_types.get(*id).clone())
+                    }
+                });
+                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|x| Some((x, 0.0)));
             }
             GameEventType::NewUnit { template, owner, position, unit_id } => {
                 self.new_unit(*unit_id, &template, *owner, *position);
+            }
+            GameEventType::NewBuilding { city_id, building_type_id } => {
+                self.new_building(*city_id, *building_type_id);
             }
             GameEventType::Crash { .. } => {
                 // We expect the client to handle this.
@@ -490,15 +546,15 @@ impl GameWorld {
             }
             GameEventType::SetCitizenLocked { city_id, position, locked } => {
                 let city = self.cities.get_mut(city_id).unwrap();
-                city.set_citizen_locked(*position, *locked, &self.map);
+                city.set_citizen_locked(*position, *locked, &self.map, &self.building_types);
             }
             GameEventType::IncreasePopulationFromFood { city_id } => {
                 let city = self.cities.get_mut(city_id).unwrap();
-                city.increase_population_from_food(&self.map);
+                city.increase_population_from_food(&self.map, &self.building_types);
             }
             GameEventType::AddTerritoryToCity { city_id, position } => {
                 let city = self.cities.get_mut(city_id).unwrap();
-                city.grow_territory(*position, &mut self.map);
+                city.grow_territory(*position, &mut self.map, &self.building_types);
             }
             GameEventType::Harvest { position } => {
                 self.map.tile_mut(*position).harvested = true;
@@ -527,7 +583,7 @@ impl GameWorld {
 
     fn on_turn_start(&mut self) {
         for city in self.cities.values_mut() {
-            city.on_turn_start(&self.map);
+            city.on_turn_start(&self.map, &self.building_types);
         }
 
         for unit in self.units.values_mut() {
@@ -546,5 +602,12 @@ impl GameWorld {
 
         assert!(self.map.tile(new_position).units.get(&unit.unit_type()) == None);
         self.map.tile_mut(new_position).units.insert(unit.unit_type(), unit_id);
+    }
+
+    fn new_building(&mut self, city_id: CityId, building_type_id: BuildingTypeId) {
+        self.cities
+            .get_mut(&city_id)
+            .unwrap()
+            .add_building(self.building_types.get(building_type_id).clone(), &self.map, &self.building_types);
     }
 }
