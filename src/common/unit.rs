@@ -49,12 +49,12 @@ pub struct UnitTemplate {
     pub name: String,
     pub movement: MapUnit,
     pub abilities: BTreeSet<UnitAbility>,
-    pub production_cost: Yield,
+    pub production_cost: YieldValue,
     pub initial_charges: Option<usize>,
 }
 
 impl UnitTemplate {
-    pub fn turn_cost(&self, production: Yield) -> usize {
+    pub fn turn_cost(&self, production: YieldValue) -> usize {
         (self.production_cost / production).ceil() as usize
     }
 }

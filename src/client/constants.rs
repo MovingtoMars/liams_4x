@@ -49,7 +49,7 @@ pub const SPRITE_HARVESTER: usize = 40;
 
 pub const SPRITE_TILE_DESERT: usize = 70;
 
-// Yield spritesheet
+// YieldValue spritesheet
 pub const YIELD_ICON_WIDTH: f32 = 16.0;
 pub const YIELD_ICON_HEIGHT: f32 = 16.0;
 

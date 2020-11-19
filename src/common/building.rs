@@ -10,11 +10,11 @@ pub struct BuildingType {
     pub id: BuildingTypeId,
     pub name: String,
     pub effects: Vec<CityEffect>,
-    pub production_cost: Yield,
+    pub production_cost: YieldValue,
 }
 
 impl BuildingType {
-    pub fn turn_cost(&self, production: Yield) -> usize {
+    pub fn turn_cost(&self, production: YieldValue) -> usize {
         (self.production_cost / production).ceil() as usize
     }
 
@@ -63,7 +63,7 @@ impl BuildingTypes {
                 name: "Granary".into(),
                 production_cost: 25.0,
                 effects: vec![
-                    CityEffect::MulYields { yields: Yields::identity().with_food(1.20) },
+                    CityEffect::MulYield(YieldMultiplier { multiplier: 1.2, yield_type: YieldType::Food }),
                 ],
             },
         ];

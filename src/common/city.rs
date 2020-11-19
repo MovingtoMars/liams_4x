@@ -30,8 +30,8 @@ impl CityIdGenerator {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CityEffect {
-    AddYields { yields: Yields },
-    MulYields { yields: Yields },
+    AddYield(Yield),
+    MulYield(YieldMultiplier),
 }
 
 impl CityEffect {
@@ -39,20 +39,18 @@ impl CityEffect {
     // TODO could implement Sort trait.
     pub fn priority(&self) -> usize {
         match self {
-            CityEffect::AddYields { .. } => 1,
-
-            CityEffect::MulYields { .. } => 2,
+            CityEffect::AddYield(..) => 1,
+            CityEffect::MulYield(..) => 2,
         }
     }
 
     fn apply(&self, city: &mut City) {
         match self {
-            CityEffect::AddYields { yields } => {
-                city.yields += *yields;
+            CityEffect::AddYield(yield_) => {
+                city.yields += *yield_;
             },
-
-            CityEffect::MulYields { yields } => {
-                city.yields *= *yields;
+            CityEffect::MulYield(yield_mul) => {
+                city.yields *= *yield_mul;
             },
         }
     }
@@ -61,17 +59,8 @@ impl CityEffect {
 impl std::fmt::Display for CityEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CityEffect::AddYields { yields } => {
-                for (yield_, name) in yields.iter_non_zero() {
-                    write!(f, "+{} {}\n", yield_, name)?;
-                }
-            },
-
-            CityEffect::MulYields { yields } => {
-                for (yield_, name) in yields.iter_non_identity() {
-                    write!(f, "x{} {}\n", yield_, name)?;
-                }
-            },
+            CityEffect::AddYield(x) => write!(f, "{}\n", x)?,
+            CityEffect::MulYield(x) => write!(f, "{}\n", x)?,
         }
         Ok(())
     }
@@ -85,7 +74,7 @@ pub struct City {
     pub (in crate::common) name: String,
 
     // unit being produced and the amount of production put into it
-    pub (in crate::common) producing: Option<(ProducingItem, Yield)>,
+    pub (in crate::common) producing: Option<(ProducingItem, YieldValue)>,
 
     pub (in crate::common) population: i16,
     // TODO make workable_territory
@@ -97,8 +86,8 @@ pub struct City {
 
     yields: Yields,
 
-    accumulated_food: Yield,
-    required_food_for_population_increase: Yield,
+    accumulated_food: YieldValue,
+    required_food_for_population_increase: YieldValue,
 
     // TODO should we use BuildingTypeId here?
     buildings: BTreeMap<BuildingTypeId, BuildingType>,
@@ -174,11 +163,11 @@ impl City {
         }
     }
 
-    pub fn accumulated_food(&self) -> Yield {
+    pub fn accumulated_food(&self) -> YieldValue {
         self.accumulated_food
     }
 
-    pub fn required_food_for_population_increase(&self) -> Yield {
+    pub fn required_food_for_population_increase(&self) -> YieldValue {
         self.required_food_for_population_increase
     }
 
@@ -228,7 +217,7 @@ impl City {
         self.update(map, building_types);
     }
 
-    pub fn producing(&self) -> &Option<(ProducingItem, Yield)> {
+    pub fn producing(&self) -> &Option<(ProducingItem, YieldValue)> {
         &self.producing
     }
 
@@ -345,7 +334,7 @@ impl City {
         self.update_effects();
         self.apply_effects();
 
-        self.required_food_for_population_increase = 15.0 + 8.0 * (self.population as Yield - 1.0) + (self.population as Yield - 1.0).powf(1.5);
+        self.required_food_for_population_increase = 15.0 + 8.0 * (self.population as YieldValue - 1.0) + (self.population as YieldValue - 1.0).powf(1.5);
     }
 
     pub fn yields(&self) -> Yields {

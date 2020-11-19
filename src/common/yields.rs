@@ -1,13 +1,53 @@
 use serde::{Serialize, Deserialize};
 
-pub type Yield = f32;
+pub type YieldValue = f32;
 
-// TODO possibly split off YieldsMultiplier
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Yield {
+    pub value: YieldValue,
+    pub yield_type: YieldType,
+}
+
+impl std::fmt::Display for Yield {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "+{} {}", self.value, self.yield_type)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct YieldMultiplier {
+    pub multiplier: YieldValue,
+    pub yield_type: YieldType,
+}
+
+impl std::fmt::Display for YieldMultiplier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "x{} {}", self.multiplier, self.yield_type)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum YieldType {
+    Food,
+    Production,
+    Science,
+}
+
+impl std::fmt::Display for YieldType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match *self {
+            YieldType::Food => "Food",
+            YieldType::Production => "Production",
+            YieldType::Science => "Science",
+        })
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Yields {
-    pub food: Yield,
-    pub production: Yield,
-    pub science: Yield,
+    pub food: YieldValue,
+    pub production: YieldValue,
+    pub science: YieldValue,
 }
 
 impl std::ops::Add for Yields {
@@ -22,8 +62,23 @@ impl std::ops::Add for Yields {
     }
 }
 
+impl std::ops::Add<Yield> for Yields {
+    type Output = Yields;
+
+    fn add(mut self, rhs: Yield) -> Self::Output {
+        *self.get_mut(rhs.yield_type) += rhs.value;
+        self
+    }
+}
+
 impl std::ops::AddAssign for Yields {
     fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl std::ops::AddAssign<Yield> for Yields {
+    fn add_assign(&mut self, rhs: Yield) {
         *self = *self + rhs;
     }
 }
@@ -40,18 +95,33 @@ impl std::ops::Mul for Yields {
     }
 }
 
+impl std::ops::Mul<YieldMultiplier> for Yields {
+    type Output = Yields;
+
+    fn mul(mut self, rhs: YieldMultiplier) -> Self::Output {
+        *self.get_mut(rhs.yield_type) *= rhs.multiplier;
+        self
+    }
+}
+
 impl std::ops::MulAssign for Yields {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
+impl std::ops::MulAssign<YieldMultiplier> for Yields {
+    fn mul_assign(&mut self, rhs: YieldMultiplier) {
+        *self = *self * rhs;
+    }
+}
+
 impl Yields {
-    pub fn identity() -> Self {
-        Self {
-            food: 1.0,
-            production: 1.0,
-            science: 1.0,
+    pub fn get_mut(&mut self, yield_type: YieldType) -> &mut YieldValue {
+        match yield_type {
+            YieldType::Food => &mut self.food,
+            YieldType::Production => &mut self.production,
+            YieldType::Science => &mut self.science,
         }
     }
 
@@ -63,38 +133,22 @@ impl Yields {
         }
     }
 
-    pub fn with_food(mut self, food: Yield) -> Self {
+    pub fn with_food(mut self, food: YieldValue) -> Self {
         self.food = food;
         self
     }
 
-    pub fn with_production(mut self, production: Yield) -> Self {
+    pub fn with_production(mut self, production: YieldValue) -> Self {
         self.production = production;
         self
     }
 
-    pub fn with_science(mut self, science: Yield) -> Self {
+    pub fn with_science(mut self, science: YieldValue) -> Self {
         self.science = science;
         self
     }
 
-    pub fn total(self) -> Yield {
+    pub fn total(self) -> YieldValue {
         self.food + self.production + self.science
-    }
-
-    pub fn iter(self) -> impl Iterator<Item = (Yield, &'static str)> {
-        vec![
-            (self.food, "Food"),
-            (self.production, "Production"),
-            (self.science, "Science"),
-        ].into_iter()
-    }
-
-    pub fn iter_non_zero(self) -> impl Iterator<Item = (Yield, &'static str)> {
-        self.iter().filter(|(y, _)| *y != 0.0)
-    }
-
-    pub fn iter_non_identity(self) -> impl Iterator<Item = (Yield, &'static str)> {
-        self.iter().filter(|(y, _)| *y != 1.0)
     }
 }

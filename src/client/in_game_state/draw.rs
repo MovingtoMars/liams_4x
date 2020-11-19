@@ -171,7 +171,7 @@ impl InGameState {
                 0 => 0.0,
                 1 | 2 => YIELD_ICON_WIDTH,
                 3 | 4 => YIELD_ICON_WIDTH * 2.0 + intra_padding,
-                _ => panic!("yield too big to render"),
+                _ => panic!("YieldValue too big to render"),
             }
         };
 

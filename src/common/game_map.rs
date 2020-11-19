@@ -31,7 +31,7 @@ impl ProducingItem {
         }
     }
 
-    pub fn production_cost(&self) -> Yield {
+    pub fn production_cost(&self) -> YieldValue {
         match self {
             ProducingItem::Unit(unit) => unit.production_cost,
             ProducingItem::Building(building) => building.production_cost,
