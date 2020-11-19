@@ -55,7 +55,7 @@ pub struct UnitTemplate {
 
 impl UnitTemplate {
     pub fn turn_cost(&self, production: YieldValue) -> usize {
-        (self.production_cost / production).ceil_usize()
+        self.production_cost.div_to_get_turn_count(production)
     }
 }
 

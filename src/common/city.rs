@@ -172,7 +172,7 @@ impl City {
     }
 
     pub fn turns_until_population_increase(&self) -> usize {
-        ((self.required_food_for_population_increase - self.accumulated_food) / self.yields.food).ceil_usize()
+        (self.required_food_for_population_increase - self.accumulated_food).div_to_get_turn_count(self.yields.food)
     }
 
     pub fn can_increase_population_from_food(&self) -> bool {

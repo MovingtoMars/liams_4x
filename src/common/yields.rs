@@ -10,8 +10,12 @@ impl std::fmt::Display for YieldValue {
 }
 
 impl YieldValue {
-    pub fn ceil_usize(self) -> usize {
-        self.0.ceil() as usize
+    pub fn round(self) -> usize {
+        self.0.round() as usize
+    }
+
+    pub fn div_to_get_turn_count(self, rhs: Self) -> usize {
+        (self.0 / rhs.0).ceil() as usize
     }
 }
 

@@ -15,7 +15,7 @@ pub struct BuildingType {
 
 impl BuildingType {
     pub fn turn_cost(&self, production: YieldValue) -> usize {
-        (self.production_cost / production).ceil_usize()
+        self.production_cost.div_to_get_turn_count(production)
     }
 
     pub fn effect_info(&self) -> String {
