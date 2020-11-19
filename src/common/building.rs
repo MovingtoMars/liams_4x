@@ -15,7 +15,7 @@ pub struct BuildingType {
 
 impl BuildingType {
     pub fn turn_cost(&self, production: YieldValue) -> usize {
-        (self.production_cost / production).ceil() as usize
+        (self.production_cost / production).ceil_usize()
     }
 
     pub fn effect_info(&self) -> String {
@@ -61,9 +61,9 @@ impl BuildingTypes {
             BuildingType {
                 id: s.generator.next(),
                 name: "Granary".into(),
-                production_cost: 25.0,
+                production_cost: 25.0.into(),
                 effects: vec![
-                    CityEffect::MulYield(YieldMultiplier { multiplier: 1.2, yield_type: YieldType::Food }),
+                    CityEffect::MulYield(YieldMultiplier { multiplier: 1.2.into(), yield_type: YieldType::Food }),
                 ],
             },
         ];

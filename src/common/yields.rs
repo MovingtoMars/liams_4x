@@ -1,6 +1,70 @@
 use serde::{Serialize, Deserialize};
 
-pub type YieldValue = f32;
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize, PartialOrd, PartialEq)]
+pub struct YieldValue(f32);
+
+impl std::fmt::Display for YieldValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl YieldValue {
+    pub fn ceil_usize(self) -> usize {
+        self.0.ceil() as usize
+    }
+}
+
+impl<T: Into<f32>> From<T> for YieldValue {
+    fn from(x: T) -> Self {
+        YieldValue(x.into())
+    }
+}
+
+impl std::ops::Add for YieldValue {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        YieldValue(self.0 + rhs.0)
+    }
+}
+
+impl std::ops::AddAssign for YieldValue {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
+impl std::ops::Sub for YieldValue {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        YieldValue(self.0 - rhs.0)
+    }
+}
+
+
+impl std::ops::Mul for YieldValue {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        YieldValue(self.0 * rhs.0)
+    }
+}
+
+impl std::ops::MulAssign for YieldValue {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs;
+    }
+}
+
+impl std::ops::Div for YieldValue {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        YieldValue(self.0 / rhs.0)
+    }
+}
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Yield {
@@ -43,7 +107,7 @@ impl std::fmt::Display for YieldType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct Yields {
     pub food: YieldValue,
     pub production: YieldValue,
@@ -125,26 +189,18 @@ impl Yields {
         }
     }
 
-    pub fn zero() -> Self {
-        Self {
-            food: 0.0,
-            production: 0.0,
-            science: 0.0,
-        }
-    }
-
-    pub fn with_food(mut self, food: YieldValue) -> Self {
-        self.food = food;
+    pub fn with_food(mut self, food: f32) -> Self {
+        self.food = food.into();
         self
     }
 
-    pub fn with_production(mut self, production: YieldValue) -> Self {
-        self.production = production;
+    pub fn with_production(mut self, production: f32) -> Self {
+        self.production = production.into();
         self
     }
 
-    pub fn with_science(mut self, science: YieldValue) -> Self {
-        self.science = science;
+    pub fn with_science(mut self, science: f32) -> Self {
+        self.science = science.into();
         self
     }
 

@@ -183,7 +183,7 @@ impl InGameState {
             (SPRITE_YIELD_SCIENCE, yields.science),
         ];
         for &(sprite_index, yield_value) in yield_types {
-            let yield_value = yield_value as usize;
+            let yield_value = yield_value.ceil_usize();
             if yield_value > 0 {
                 let width = yields_width_for_type(yield_value);
                 yield_calc.push((sprite_index, yield_value, total_width, width));
@@ -495,13 +495,13 @@ impl InGameState {
                         rc.ui.spacing();
 
                         let yields = tile.yields();
-                        if yields.food > 0.0 {
+                        if yields.food > 0.0.into() {
                             rc.ui.text(format!("{} food", yields.food));
                         }
-                        if yields.production > 0.0 {
+                        if yields.production > 0.0.into() {
                             rc.ui.text(format!("{} production", yields.production));
                         }
-                        if yields.science > 0.0 {
+                        if yields.science > 0.0.into() {
                             rc.ui.text(format!("{} science", yields.science));
                         }
                     },
@@ -603,12 +603,12 @@ impl InGameState {
                         rc.ui.spacing();
                         if let Some((producing_unit, producing_progress)) = city.producing() {
                             rc.ui.text(format!("Production: {}", producing_unit.name()));
-                            let production_remaining = producing_unit.production_cost() - producing_progress;
+                            let production_remaining = producing_unit.production_cost() - *producing_progress;
                             rc.ui.text(format!(
                                 "{}/{} ({} turns remaining)",
                                 producing_progress,
                                 producing_unit.production_cost(),
-                                (production_remaining as f32 / yields.production as f32).ceil() as usize,
+                                (production_remaining / yields.production).ceil_usize(),
                             ));
                         } else {
                             rc.ui.text("Production: None");

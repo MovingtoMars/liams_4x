@@ -380,7 +380,7 @@ impl GameWorld {
                         }
                     }
                     ProducingItem::Building(building_type) => {
-                        let event = GameEventType::NewBuilding { building_type_id: building_type.id, city_id: city_id };
+                        let event = GameEventType::NewBuilding { building_type_id: building_type.id, city_id };
                         result.push(self.apply_event_move(event));
                         let event = GameEventType::SetProducing { city_id, producing: None };
                         result.push(self.apply_event_move(event));
@@ -530,7 +530,7 @@ impl GameWorld {
                         ProducingItem::Building(self.building_types.get(*id).clone())
                     }
                 });
-                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|x| Some((x, 0.0)));
+                self.cities.get_mut(city_id).unwrap().producing = producing.clone().and_then(|x| Some((x, 0.0.into())));
             }
             GameEventType::NewUnit { template, owner, position, unit_id } => {
                 self.new_unit(*unit_id, &template, *owner, *position);

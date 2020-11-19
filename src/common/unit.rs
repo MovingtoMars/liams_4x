@@ -55,7 +55,7 @@ pub struct UnitTemplate {
 
 impl UnitTemplate {
     pub fn turn_cost(&self, production: YieldValue) -> usize {
-        (self.production_cost / production).ceil() as usize
+        (self.production_cost / production).ceil_usize()
     }
 }
 
@@ -74,7 +74,7 @@ impl UnitTemplateManager {
                 name: "Settler".into(),
                 movement: 2,
                 abilities: vec![UnitAbility::Settle].into_iter().collect(),
-                production_cost: 20.0,
+                production_cost: 20.0.into(),
                 initial_charges: None,
             },
             worker: UnitTemplate {
@@ -82,7 +82,7 @@ impl UnitTemplateManager {
                 name: "Worker".into(),
                 movement: 2,
                 abilities: vec![UnitAbility::Harvest].into_iter().collect(),
-                production_cost: 15.0,
+                production_cost: 15.0.into(),
                 initial_charges: Some(3),
             },
             warrior: UnitTemplate {
@@ -90,7 +90,7 @@ impl UnitTemplateManager {
                 name: "Warrior".into(),
                 movement: 2,
                 abilities: vec![].into_iter().collect(),
-                production_cost: 14.0,
+                production_cost: 14.0.into(),
                 initial_charges: None,
             },
         }

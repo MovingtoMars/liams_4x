@@ -123,9 +123,9 @@ impl City {
 
             // Calculated in the update() call below
             borders: vec![],
-            yields: Yields::zero(),
-            accumulated_food: 0.0,
-            required_food_for_population_increase: 0.0,
+            yields: Yields::default(),
+            accumulated_food: 0.0.into(),
+            required_food_for_population_increase: 0.0.into(),
             producible_buildings: vec![],
             effects: vec![],
         };
@@ -172,7 +172,7 @@ impl City {
     }
 
     pub fn turns_until_population_increase(&self) -> usize {
-        ((self.required_food_for_population_increase - self.accumulated_food) as f32 / self.yields.food as f32).ceil() as usize
+        ((self.required_food_for_population_increase - self.accumulated_food) / self.yields.food).ceil_usize()
     }
 
     pub fn can_increase_population_from_food(&self) -> bool {
@@ -213,7 +213,7 @@ impl City {
 
     pub(in crate::common) fn increase_population_from_food(&mut self, map: &GameMap, building_types: &BuildingTypes) {
         self.population += 1;
-        self.accumulated_food = 0.0;
+        self.accumulated_food = 0.0.into();
         self.update(map, building_types);
     }
 
@@ -291,12 +291,12 @@ impl City {
     }
 
     fn update_yields(&mut self, map: &GameMap) {
-        let pop_yields = Yields::zero().with_science(self.population as f32);
+        let pop_yields = Yields::default().with_science(self.population as f32);
         let tile_yields = self.territory
             .iter()
             .filter(|(pos, citizen)| **pos == self.position || citizen.is_some())
             .map(|(pos, _)| map.tile(*pos).yields())
-            .fold(Yields::zero(), |y1, y2| y1 + y2);
+            .fold(Yields::default(), |y1, y2| y1 + y2);
 
         self.yields = pop_yields + tile_yields;
     }
@@ -334,7 +334,8 @@ impl City {
         self.update_effects();
         self.apply_effects();
 
-        self.required_food_for_population_increase = 15.0 + 8.0 * (self.population as YieldValue - 1.0) + (self.population as YieldValue - 1.0).powf(1.5);
+        let req_food = 15.0 + 8.0 * (self.population as f32 - 1.0) + (self.population as f32 - 1.0).powf(1.5);
+        self.required_food_for_population_increase = req_food.into();
     }
 
     pub fn yields(&self) -> Yields {
