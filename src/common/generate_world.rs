@@ -107,9 +107,9 @@ impl GameWorld {
             }
 
             let id = world.next_unit_id();
-            world.new_unit(id, &world.unit_template_manager().settler.clone(), civilization_id, position);
+            world.new_unit(id, &world.unit_templates().get_by_name("Settler").clone(), civilization_id, position);
             let id = world.next_unit_id();
-            world.new_unit(id, &world.unit_template_manager().warrior.clone(), civilization_id, position);
+            world.new_unit(id, &world.unit_templates().get_by_name("Warrior").clone(), civilization_id, position);
         }
 
         for _ in 0..(num_tiles / 50) {

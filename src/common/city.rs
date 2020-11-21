@@ -66,6 +66,31 @@ impl std::fmt::Display for CityEffect {
     }
 }
 
+pub struct CityArgsMut<'a> {
+    pub map: &'a mut GameMap,
+    pub building_types: &'a BuildingTypes,
+    pub tech_progress: &'a TechProgress,
+    pub unit_templates: &'a UnitTemplates,
+}
+
+impl<'a> CityArgsMut<'a> {
+    fn as_city_args(&'a self) -> CityArgs<'a> {
+        CityArgs {
+            map: self.map,
+            building_types: self.building_types,
+            tech_progress: self.tech_progress,
+            unit_templates: self.unit_templates,
+        }
+    }
+}
+
+pub struct CityArgs<'a> {
+    pub map: &'a GameMap,
+    pub building_types: &'a BuildingTypes,
+    pub tech_progress: &'a TechProgress,
+    pub unit_templates: &'a UnitTemplates,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct City {
     pub (in crate::common) id: CityId,
@@ -89,9 +114,10 @@ pub struct City {
     accumulated_food: YieldValue,
     required_food_for_population_increase: YieldValue,
 
-    // TODO should we use BuildingTypeId here?
     buildings: BTreeMap<BuildingTypeId, BuildingType>,
+    // TODO should we use BuildingTypeId here?
     producible_buildings: Vec<BuildingType>,
+    producible_units: Vec<UnitTemplateId>,
 
     effects: Vec<CityEffect>,
 }
@@ -99,16 +125,16 @@ pub struct City {
 impl City {
     const TERRITORY_EXPAND_TURNS: isize = 6;
 
-    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, map: &mut GameMap, building_types: &BuildingTypes) -> Self {
+    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, args: CityArgsMut) -> Self {
         let mut territory = BTreeMap::new();
-        for (pos, _) in position.neighbors_at_distance(map.width(), map.height(), 1, true) {
-            let mut tile = map.tile_mut(pos);
+        for (pos, _) in position.neighbors_at_distance(args.map.width(), args.map.height(), 1, true) {
+            let mut tile = args.map.tile_mut(pos);
             if tile.territory_of.is_none() {
                 tile.territory_of = Some(id);
                 territory.insert(pos, None);
             }
         }
-        map.tile_mut(position).city = Some(id);
+        args.map.tile_mut(position).city = Some(id);
 
         let mut city = City {
             position,
@@ -128,8 +154,9 @@ impl City {
             required_food_for_population_increase: 0.0.into(),
             producible_buildings: vec![],
             effects: vec![],
+            producible_units: vec![],
         };
-        city.update(map, building_types);
+        city.update(args.as_city_args());
         city
     }
 
@@ -149,8 +176,8 @@ impl City {
         &self.name
     }
 
-    pub (in crate::common) fn on_turn_start(&mut self, map: &GameMap, building_types: &BuildingTypes) {
-        self.update(map, building_types);
+    pub (in crate::common) fn on_turn_start(&mut self, args: CityArgs) {
+        self.update(args);
 
         if let Some((_, ref mut spent)) = &mut self.producing {
             *spent += self.yields.production;
@@ -204,17 +231,17 @@ impl City {
         self.turns_until_territory_growth
     }
 
-    pub fn grow_territory(&mut self, position: TilePosition, map: &mut GameMap, building_types: &BuildingTypes) {
+    pub fn grow_territory(&mut self, position: TilePosition, args: CityArgsMut) {
         self.territory.insert(position, None);
-        map.tile_mut(position).territory_of = Some(self.id);
-        self.update(map, building_types);
+        args.map.tile_mut(position).territory_of = Some(self.id);
+        self.update(args.as_city_args());
         self.turns_until_territory_growth = Self::TERRITORY_EXPAND_TURNS;
     }
 
-    pub(in crate::common) fn increase_population_from_food(&mut self, map: &GameMap, building_types: &BuildingTypes) {
+    pub(in crate::common) fn increase_population_from_food(&mut self, args: CityArgs) {
         self.population += 1;
         self.accumulated_food = 0.0.into();
-        self.update(map, building_types);
+        self.update(args);
     }
 
     pub fn producing(&self) -> &Option<(ProducingItem, YieldValue)> {
@@ -272,7 +299,7 @@ impl City {
         }
     }
 
-    pub (in crate::common) fn set_citizen_locked(&mut self, position: TilePosition, locked: bool, map: &GameMap, building_types: &BuildingTypes) {
+    pub (in crate::common) fn set_citizen_locked(&mut self, position: TilePosition, locked: bool, args: CityArgs) {
         if locked {
             if self.population == self.locked_citizen_count() {
                 let first_locked_citizen = self.territory.values_mut().find(|citizen| **citizen == Some(Citizen::Locked)).unwrap();
@@ -283,7 +310,7 @@ impl City {
             self.territory.insert(position, None);
         }
 
-        self.update(map, building_types);
+        self.update(args);
     }
 
     pub fn borders(&self) -> &[EdgePosition] {
@@ -301,11 +328,20 @@ impl City {
         self.yields = pop_yields + tile_yields;
     }
 
-    fn update_producible_buildings(&mut self, building_types: &BuildingTypes) {
-        self.producible_buildings = building_types
-            .all()
-            .filter(|building_type| !self.buildings.contains_key(&building_type.id))
-            .map(|building_type| building_type.clone())
+    fn update_producible_buildings(&mut self, building_types: &BuildingTypes, tech_progress: &TechProgress) {
+        self.producible_buildings = tech_progress
+            .unlocked_buildings()
+            .iter()
+            .filter(|building_type| !self.buildings.contains_key(&building_type))
+            .map(|building_type| building_types.get(*building_type).clone())
+            .collect();
+    }
+
+    fn update_producible_units(&mut self, tech_progress: &TechProgress) {
+        self.producible_units = tech_progress
+            .unlocked_units()
+            .iter()
+            .map(|unit_template_id| *unit_template_id)
             .collect();
     }
 
@@ -325,12 +361,12 @@ impl City {
         }
     }
 
-    // TODO maybe create CityUpdateArgs struct
-    pub (in crate::common) fn update(&mut self, map: &GameMap, building_types: &BuildingTypes) {
+    pub (in crate::common) fn update(&mut self, args: CityArgs) {
         self.update_borders_from_territory();
-        self.update_citizens(map);
-        self.update_yields(map);
-        self.update_producible_buildings(building_types);
+        self.update_citizens(args.map);
+        self.update_yields(args.map);
+        self.update_producible_buildings(args.building_types, args.tech_progress);
+        self.update_producible_units(args.tech_progress);
         self.update_effects();
         self.apply_effects();
 
@@ -342,9 +378,9 @@ impl City {
         self.yields
     }
 
-    pub(in crate::common) fn add_building(&mut self, building: BuildingType, map: &GameMap, building_types: &BuildingTypes) {
+    pub(in crate::common) fn add_building(&mut self, building: BuildingType, args: CityArgs) {
         self.buildings.insert(building.id, building);
-        self.update(map, building_types);
+        self.update(args);
     }
 
     pub fn buildings(&self) -> impl Iterator<Item = &BuildingType> {
@@ -353,5 +389,9 @@ impl City {
 
     pub fn producible_buildings(&self) -> impl Iterator<Item = &BuildingType> {
         self.producible_buildings.iter()
+    }
+
+    pub fn producible_units(&self) -> impl Iterator<Item = &UnitTemplateId> {
+        self.producible_units.iter()
     }
 }

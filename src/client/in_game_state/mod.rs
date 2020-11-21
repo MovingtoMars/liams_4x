@@ -54,6 +54,7 @@ pub struct InGameState {
     player_id: PlayerId,
     quitting: bool,
     crash: Option<String>,
+    display_tech_tree: bool,
 }
 
 impl InGameState {
@@ -102,6 +103,7 @@ impl InGameState {
             player_id,
             quitting: false,
             crash: None,
+            display_tech_tree: false,
         };
         Ok(s)
     }
@@ -206,6 +208,9 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
             self.draw_general_sidebar_ui(ctx, &rc);
             self.draw_selected_sidebar_ui(ctx, &rc);
             self.draw_cities_ui(ctx, &rc);
+            if self.display_tech_tree {
+                self.draw_tech_tree_ui(ctx, &rc);
+            }
 
             rc.render(ctx);
         }

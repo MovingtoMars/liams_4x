@@ -121,9 +121,7 @@ impl EventHandler for SceneStackHandler {
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        graphics::set_screen_coordinates(ctx, graphics::Rect::new(0.0, 0.0, width, height))
-            .unwrap();
-        println!("{:?}", graphics::screen_coordinates(ctx));
+        graphics::set_screen_coordinates(ctx, graphics::Rect::new(0.0, 0.0, width, height)).unwrap();
     }
 }
 

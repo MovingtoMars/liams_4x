@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 
+use crate::common::*;
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct CivilizationColor {
     pub r: u8,
@@ -51,13 +53,15 @@ impl CivilizationIdGenerator {
 pub struct Civilization {
     id: CivilizationId,
     player_name: String,
+    pub(in crate::common) tech_progress: TechProgress,
 }
 
 impl Civilization {
-    pub fn new<S: Into<String>>(id: CivilizationId, player_name: S) -> Self {
+    pub fn new<S: Into<String>>(id: CivilizationId, player_name: S, tech_tree: &TechTree) -> Self {
         Self {
             id,
             player_name: player_name.into(),
+            tech_progress: TechProgress::new(tech_tree),
         }
     }
 
@@ -71,5 +75,13 @@ impl Civilization {
 
     pub fn player_name(&self) -> &String {
         &self.player_name
+    }
+
+    pub fn tech_progress(&self) -> &TechProgress {
+        &self.tech_progress
+    }
+
+    pub fn on_turn_start(&mut self, science_yield: YieldValue) {
+        self.tech_progress.on_turn_start(science_yield);
     }
 }

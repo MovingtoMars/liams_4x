@@ -3,6 +3,25 @@ use std::collections::BTreeSet;
 
 use crate::common::*;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct UnitTemplateId(u16);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UnitTemplateIdGenerator {
+    next: u16,
+}
+
+impl UnitTemplateIdGenerator {
+    pub fn new() -> Self {
+        Self { next: 0 }
+    }
+
+    pub fn next(&mut self) -> UnitTemplateId {
+        self.next += 1;
+        UnitTemplateId(self.next)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum UnitType {
     Civilian,
@@ -45,6 +64,7 @@ pub enum UnitAbility {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UnitTemplate {
+    pub id: UnitTemplateId,
     pub unit_type: UnitType,
     pub name: String,
     pub movement: MapUnit,
@@ -60,48 +80,65 @@ impl UnitTemplate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct UnitTemplateManager {
-    pub settler: UnitTemplate,
-    pub worker: UnitTemplate,
-    pub warrior: UnitTemplate,
+pub struct UnitTemplates {
+    unit_templates: BTreeMap<UnitTemplateId, UnitTemplate>,
 }
 
-impl UnitTemplateManager {
-    pub fn new() -> Self {
-        Self {
-            settler: UnitTemplate {
-                unit_type: UnitType::Civilian,
-                name: "Settler".into(),
-                movement: 2,
-                abilities: vec![UnitAbility::Settle].into_iter().collect(),
-                production_cost: 20.0.into(),
-                initial_charges: None,
-            },
-            worker: UnitTemplate {
-                unit_type: UnitType::Civilian,
-                name: "Worker".into(),
-                movement: 2,
-                abilities: vec![UnitAbility::Harvest].into_iter().collect(),
-                production_cost: 15.0.into(),
-                initial_charges: Some(3),
-            },
-            warrior: UnitTemplate {
-                unit_type: UnitType::Soldier,
-                name: "Warrior".into(),
-                movement: 2,
-                abilities: vec![].into_iter().collect(),
-                production_cost: 14.0.into(),
-                initial_charges: None,
-            },
-        }
+impl UnitTemplates {
+    fn add(&mut self, unit_template: UnitTemplate) {
+        self.unit_templates.insert(unit_template.id, unit_template);
     }
 
-    pub fn all(&self) -> Vec<&UnitTemplate> {
-        vec![
-            &self.settler,
-            &self.worker,
-            &self.warrior,
-        ]
+    pub fn new() -> Self {
+        let mut generator = UnitTemplateIdGenerator::new();
+
+        let mut x = Self {
+            unit_templates: BTreeMap::new(),
+        };
+
+        x.add(UnitTemplate {
+            id: generator.next(),
+            unit_type: UnitType::Civilian,
+            name: "Settler".into(),
+            movement: 2,
+            abilities: vec![UnitAbility::Settle].into_iter().collect(),
+            production_cost: 20.0.into(),
+            initial_charges: None,
+        });
+
+        x.add(UnitTemplate {
+            id: generator.next(),
+            unit_type: UnitType::Civilian,
+            name: "Worker".into(),
+            movement: 2,
+            abilities: vec![UnitAbility::Harvest].into_iter().collect(),
+            production_cost: 15.0.into(),
+            initial_charges: Some(3),
+        });
+
+        x.add(UnitTemplate {
+            id: generator.next(),
+            unit_type: UnitType::Soldier,
+            name: "Warrior".into(),
+            movement: 2,
+            abilities: vec![].into_iter().collect(),
+            production_cost: 14.0.into(),
+            initial_charges: None,
+        });
+
+        x
+    }
+
+    pub fn all(&self) -> impl Iterator<Item = &UnitTemplate> {
+        self.unit_templates.values()
+    }
+
+    pub fn get_by_name(&self, name: &str) -> &UnitTemplate {
+        self.all().find(|unit_template| unit_template.name == name).unwrap()
+    }
+
+    pub fn get(&self, id: UnitTemplateId) -> &UnitTemplate {
+        self.unit_templates.get(&id).unwrap()
     }
 }
 

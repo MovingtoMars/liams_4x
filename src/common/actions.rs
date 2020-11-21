@@ -10,4 +10,5 @@ pub enum GameActionType {
     SetSleeping { unit_id: UnitId, sleeping: bool },
     SetCitizenLocked { city_id: CityId, position: TilePosition, locked: bool },
     Harvest { unit_id: UnitId },
+    SetResearch { tech_id: TechId },
 }

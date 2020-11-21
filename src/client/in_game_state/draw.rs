@@ -407,12 +407,34 @@ impl InGameState {
                 rc.ui.spacing();
                 rc.ui.spacing();
                 rc.ui.spacing();
+
+                rc.ui.text(format!("Science: {}", self.world.civilization_science_yield(you_civ_id)));
+
                 rc.ui.spacing();
                 rc.ui.separator();
                 rc.ui.spacing();
 
+                if rc.ui.button(im_str!("Tech Tree"), button_size) {
+                    self.display_tech_tree = true;
+                }
+
+                rc.ui.spacing();
+                rc.ui.separator();
+                rc.ui.spacing();
+
+                // TODO does this belong in common code instead?
                 rc.ui.text("Tasks:");
                 let mut todo_something = false;
+
+                let tech_progress = self.world.civilization(you_civ_id).unwrap().tech_progress();
+                if tech_progress.researching().is_none() && tech_progress.can_research_any(self.world.tech_tree()) {
+                    todo_something = true;
+                    let clicked = rc.ui.button(im_str!("Choose research"), button_size);
+                    if clicked {
+                        self.display_tech_tree = true;
+                    }
+                }
+
                 for city in self.world.cities().filter(|city| city.owner() == you_civ_id) {
                     if city.producing().is_none() {
                         todo_something = true;
@@ -618,7 +640,8 @@ impl InGameState {
                         rc.ui.spacing();
 
                         rc.ui.text(im_str!("Production List"));
-                        for unit_template in self.world.unit_template_manager().all() {
+                        for unit_template_id in city.producible_units() {
+                            let unit_template = self.world.unit_templates().get(*unit_template_id);
                             let label = format!(
                                 "{}: {} ({} turns)",
                                 unit_template.name,
@@ -674,18 +697,156 @@ impl InGameState {
             });
 
         if let Some(hover_text) = hover_text {
-            let mint::Point2 { x: mouse_x, y: mouse_y } = ggez::input::mouse::position(ctx);
-            imgui::Window::new(im_str!("selected_subitem_hover"))
-                .always_auto_resize(true)
-                .position([mouse_x, mouse_y], imgui::Condition::Always)
-                .collapsible(false)
-                .movable(false)
-                .resizable(false)
-                .mouse_inputs(false)
-                .no_decoration()
-                .build(&rc.ui, || {
-                    rc.ui.text(hover_text);
-                });
+            self.draw_mouse_overlay_ui(hover_text, ctx, rc);
         }
     }
+
+    fn draw_mouse_overlay_ui<T: AsRef<str>>(&self, text: T, ctx: &Context, rc: &ImGuiRenderContext) {
+        use imgui::*;
+
+        let mint::Point2 { x: mouse_x, y: mouse_y } = ggez::input::mouse::position(ctx);
+        imgui::Window::new(im_str!("mouse_overlay_ui"))
+            .always_auto_resize(true)
+            .position([mouse_x, mouse_y], imgui::Condition::Always)
+            .collapsible(false)
+            .movable(false)
+            .resizable(false)
+            .mouse_inputs(false)
+            .no_decoration()
+            .focused(true)
+            .build(&rc.ui, || {
+                rc.ui.text(text);
+            });
+    }
+
+    pub(super) fn draw_tech_tree_ui(&mut self, ctx: &mut Context, rc: &ImGuiRenderContext) {
+        use imgui::*;
+
+        let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
+
+        let width = screen_width - 200.0;
+        let height = screen_height - 200.0;
+
+        let mut opened = true;
+
+        imgui::Window::new(im_str!("Tech Tree"))
+            .size([width, height], imgui::Condition::Always)
+            .position([(screen_width - width) / 2.0, (screen_height - height) / 2.0], imgui::Condition::Always)
+            .collapsible(false)
+            .movable(false)
+            .resizable(false)
+            .opened(&mut opened)
+            .focused(true)
+            .horizontal_scrollbar(true)
+            .build(&rc.ui, || {
+                for tech_id in self.world.tech_tree().all() {
+                    let tech = self.world.tech_tree().get(tech_id);
+                    let position = tech.position();
+                    rc.ui.set_cursor_pos(Self::tech_tree_ui_point(position));
+                    let tech = self.world.tech_tree().get(tech_id);
+
+                    let my_civ_id = self.world.player(self.player_id).unwrap().civilization_id();
+                    let tech_progress = self.world.civilization(my_civ_id).unwrap().tech_progress();
+
+                    if tech_progress.has_completed(tech_id) {
+                        let color = [0.06, 0.98, 0.18, 0.4];
+                        let token = rc.ui.push_style_colors(&[
+                            (StyleColor::Button, color),
+                            (StyleColor::ButtonHovered, color),
+                            (StyleColor::ButtonActive, color),
+                        ]);
+
+                        rc.ui.button(&ImString::new(tech.name()), Self::TECH_TREE_BUTTON_SIZE);
+
+                        token.pop(&rc.ui);
+                    } else if tech_progress.researching() == Some(tech_id) {
+                        let color = [0.87, 0.83, 0.07, 0.4];
+                        let token = rc.ui.push_style_colors(&[
+                            (StyleColor::Button, color),
+                            (StyleColor::ButtonHovered, color),
+                            (StyleColor::ButtonActive, color),
+                        ]);
+
+                        let science_yield_value = self.world.civilization_science_yield(my_civ_id).value;
+                        let remaining_turn_cost = tech_progress.remaining_turns_for_current_research(
+                            self.world.tech_tree(),
+                            science_yield_value,
+                        ).unwrap();
+                        let label = format!("{} ({} turns)", tech.name(), remaining_turn_cost);
+                        rc.ui.button(&ImString::new(label), Self::TECH_TREE_BUTTON_SIZE);
+
+                        token.pop(&rc.ui);
+                    } else {
+                        let science_yield_value = self.world.civilization_science_yield(my_civ_id).value;
+                        let turn_cost = tech.cost().div_to_get_turn_count(science_yield_value);
+                        let label = format!("{} ({} turns)", tech.name(), turn_cost);
+                        let clicked = rc.ui.button(&ImString::new(label), Self::TECH_TREE_BUTTON_SIZE);
+                        if clicked {
+                            let action = GameActionType::SetResearch { tech_id };
+                            self.connection.send_message(MessageToServer::Action(action))
+                        }
+                    }
+
+                    if rc.ui.is_item_hovered() {
+                        self.draw_mouse_overlay_ui(tech.info(self.world.unit_templates()), ctx, rc);
+                    }
+
+                    for dependency_id in tech.dependencies() {
+                        let dependency = self.world.tech_tree().get(*dependency_id);
+                        self.draw_tech_tree_line(dependency.position(), position, rc);
+                    }
+                }
+            });
+
+        if !opened {
+            self.display_tech_tree = false;
+        }
+    }
+
+    const TECH_TREE_LINE_COLOR: [f32; 3] = [1.0, 1.0, 1.0];
+    const TECH_TREE_SCALE: f32 = 1000.0;
+    const TECH_TREE_BUTTON_SIZE: [f32; 2] = [200.0, 50.0];
+    const TECH_TREE_PADDING: [f32; 2] = [50.0, 50.0];
+
+    fn draw_tech_tree_line(&self, start: (f32, f32), end: (f32, f32), rc: &ImGuiRenderContext) {
+        let draw_list = rc.ui.get_window_draw_list();
+        let window_pos = rc.ui.window_pos();
+        let clip_start = Self::scroll_clip_point(add_arr(window_pos, rc.ui.window_content_region_min()), rc);
+        let clip_end = Self::scroll_clip_point(add_arr(window_pos, rc.ui.window_content_region_max()), rc);
+
+        let mut src = Self::tech_tree_ui_point_draw_list(start, rc);
+        src[0] += Self::TECH_TREE_BUTTON_SIZE[0] / 2.0;
+        src[1] += Self::TECH_TREE_BUTTON_SIZE[1];
+        let mut dest = Self::tech_tree_ui_point_draw_list(end, rc);
+        dest[0] += Self::TECH_TREE_BUTTON_SIZE[0] / 2.0;
+
+        draw_list.with_clip_rect(clip_start, clip_end, || {
+            draw_list.add_line(
+                src,
+                dest,
+                Self::TECH_TREE_LINE_COLOR,
+            ).build();
+        })
+    }
+
+    // TODO clean this up and use better names
+    fn tech_tree_ui_point(position: (f32, f32)) -> [f32; 2] {
+        let (x, y) = position;
+        add_arr(Self::TECH_TREE_PADDING, [x * Self::TECH_TREE_SCALE, y * Self::TECH_TREE_SCALE])
+    }
+
+    fn scroll_clip_point(position: [f32; 2], rc: &ImGuiRenderContext) -> [f32; 2] {
+        [position[0] + rc.ui.scroll_x(), position[1] + rc.ui.scroll_y()]
+    }
+
+    fn tech_tree_ui_point_draw_list(position: (f32, f32), rc: &ImGuiRenderContext) -> [f32; 2] {
+        let scaled = Self::tech_tree_ui_point(position);
+        let window_pos = rc.ui.window_pos();
+        let scrolled = [scaled[0] - rc.ui.scroll_x(), scaled[1] - rc.ui.scroll_y()];
+        add_arr(scrolled, window_pos)
+    }
+}
+
+fn add_arr(a: [f32; 2], b: [f32; 2]) -> [f32; 2] {
+    [a[0] + b[0], a[1] + b[1]]
 }

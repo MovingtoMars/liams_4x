@@ -19,4 +19,6 @@ pub enum GameEventType {
     Harvest { position: TilePosition },
     DepleteMovement { unit_id: UnitId },
     UseCharge { unit_id: UnitId },
+    FinishResearch { civilization_id: CivilizationId },
+    SetResearch { civilization_id: CivilizationId, tech_id: TechId },
 }

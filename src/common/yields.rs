@@ -5,7 +5,7 @@ pub struct YieldValue(f32);
 
 impl std::fmt::Display for YieldValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", (self.0 * 100.0).round() / 100.0)
     }
 }
 
@@ -15,7 +15,12 @@ impl YieldValue {
     }
 
     pub fn div_to_get_turn_count(self, rhs: Self) -> usize {
-        (self.0 / rhs.0).ceil() as usize
+        let turn_count = (self.0 / rhs.0).ceil();
+        if turn_count >= 0.0 {
+            turn_count as usize
+        } else {
+            0
+        }
     }
 }
 
@@ -47,6 +52,11 @@ impl std::ops::Sub for YieldValue {
     }
 }
 
+impl std::ops::SubAssign for YieldValue {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
 
 impl std::ops::Mul for YieldValue {
     type Output = Self;

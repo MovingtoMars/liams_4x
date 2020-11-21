@@ -79,11 +79,11 @@ impl BuildingTypes {
         self.building_types.insert(building_type.id, building_type);
     }
 
-    pub fn all(&self) -> impl Iterator<Item = &BuildingType> {
-        self.building_types.values()
-    }
-
     pub fn get(&self, id: BuildingTypeId) -> &BuildingType {
         self.building_types.get(&id).unwrap()
+    }
+
+    pub fn get_by_name(&self, name: &str) -> &BuildingType {
+        self.building_types.values().find(|bt| bt.name == name).unwrap()
     }
 }
