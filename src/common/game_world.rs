@@ -159,7 +159,7 @@ impl GameWorld {
         let name = self.city_name_generator.next();
 
         let tech_progress = self.civilizations.get(&owner).unwrap().tech_progress();
-        let args = CityArgsMut { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
+        let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
         let city = City::new(id, owner, position, name, args);
 
         self.cities.insert(id, city);
@@ -383,7 +383,7 @@ impl GameWorld {
     fn on_turn_start(&mut self) {
         for city in self.cities.values_mut() {
             let tech_progress = self.civilizations.get(&city.owner()).unwrap().tech_progress();
-            let args = CityArgs { map: &self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
+            let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
             city.on_turn_start(args);
         }
 
@@ -394,6 +394,15 @@ impl GameWorld {
         for civilization_id in self.civilizations.keys().map(|id| *id).collect::<Vec<_>>() {
             let science_yield = self.civilization_science_yield(civilization_id).value;
             self.civilizations.get_mut(&civilization_id).unwrap().on_turn_start(science_yield);
+        }
+    }
+
+    // Re-calculate all game state based on sources of truth. Should be idempotent.
+    fn update(&mut self) {
+        for city in self.cities.values_mut() {
+            let tech_progress = self.civilizations.get(&city.owner()).unwrap().tech_progress();
+            let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
+            city.update(args);
         }
     }
 
@@ -449,19 +458,19 @@ impl GameWorld {
             GameEventType::SetCitizenLocked { city_id, position, locked } => {
                 let city = self.cities.get_mut(city_id).unwrap();
                 let tech_progress = self.civilizations.get(&city.owner()).unwrap().tech_progress();
-                let args = CityArgs { map: &self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
+                let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
                 city.set_citizen_locked(*position, *locked, args);
             }
             GameEventType::IncreasePopulationFromFood { city_id } => {
                 let city = self.cities.get_mut(city_id).unwrap();
                 let tech_progress = self.civilizations.get(&city.owner()).unwrap().tech_progress();
-                let args = CityArgs { map: &self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
+                let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
                 city.increase_population_from_food(args);
             }
             GameEventType::AddTerritoryToCity { city_id, position } => {
                 let city = self.cities.get_mut(city_id).unwrap();
                 let tech_progress = self.civilizations.get(&city.owner()).unwrap().tech_progress();
-                let args = CityArgsMut { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
+                let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress, unit_templates: &self.unit_templates };
                 city.grow_territory(*position, args);
             }
             GameEventType::Harvest { position } => {
@@ -475,6 +484,8 @@ impl GameWorld {
             }
             GameEventType::FinishResearch { civilization_id } => {
                 self.civilizations.get_mut(civilization_id).unwrap().tech_progress.finish_research(&self.tech_tree);
+                // A tech can affect basically everything in the game, so just update everything :^)
+                self.update();
             }
             GameEventType::SetResearch { civilization_id, tech_id } => {
                 self.civilizations.get_mut(civilization_id).unwrap().tech_progress.set_researching(Some(*tech_id));
@@ -511,7 +522,7 @@ impl GameWorld {
     fn new_building(&mut self, city_id: CityId, building_type_id: BuildingTypeId) {
         let city = self.cities.get_mut(&city_id).unwrap();
         let civ = self.civilizations.get(&city.owner).unwrap();
-        let args = CityArgs { map: &self.map, building_types: &self.building_types, tech_progress: civ.tech_progress(), unit_templates: &self.unit_templates };
+        let args = CityArgs { map: &mut self.map, building_types: &self.building_types, tech_progress: civ.tech_progress(), unit_templates: &self.unit_templates };
         city.add_building(self.building_types.get(building_type_id).clone(), args);
     }
 

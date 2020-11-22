@@ -32,6 +32,7 @@ impl CityIdGenerator {
 pub enum CityEffect {
     AddYield(Yield),
     MulYield(YieldMultiplier),
+    AddTileYield { yield_: Yield, matcher: TileMatcher },
 }
 
 impl CityEffect {
@@ -39,12 +40,13 @@ impl CityEffect {
     // TODO could implement Sort trait.
     pub fn priority(&self) -> usize {
         match self {
-            CityEffect::AddYield(..) => 1,
-            CityEffect::MulYield(..) => 2,
+            CityEffect::AddTileYield { .. } => 1,
+            CityEffect::AddYield(..) => 2,
+            CityEffect::MulYield(..) => 3,
         }
     }
 
-    fn apply(&self, city: &mut City) {
+    fn apply(&self, city: &mut City, map: &mut GameMap) {
         match self {
             CityEffect::AddYield(yield_) => {
                 city.yields += *yield_;
@@ -52,40 +54,32 @@ impl CityEffect {
             CityEffect::MulYield(yield_mul) => {
                 city.yields *= *yield_mul;
             },
+            CityEffect::AddTileYield { yield_, matcher } => {
+                for tile_position in city.territory_tiles() {
+                    let tile = map.tile_mut(*tile_position);
+                    if matcher.matches(tile) {
+                        tile.territory.as_mut().unwrap().city_effect_yields += *yield_;
+                    }
+                }
+            }
         }
     }
 }
 
+// TODO move to client
 impl std::fmt::Display for CityEffect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CityEffect::AddYield(x) => write!(f, "{}\n", x)?,
             CityEffect::MulYield(x) => write!(f, "{}\n", x)?,
+            CityEffect::AddTileYield { yield_, matcher } => write!(f, "{} for {}\n", yield_, matcher)?,
         }
         Ok(())
     }
 }
 
-pub struct CityArgsMut<'a> {
-    pub map: &'a mut GameMap,
-    pub building_types: &'a BuildingTypes,
-    pub tech_progress: &'a TechProgress,
-    pub unit_templates: &'a UnitTemplates,
-}
-
-impl<'a> CityArgsMut<'a> {
-    fn as_city_args(&'a self) -> CityArgs<'a> {
-        CityArgs {
-            map: self.map,
-            building_types: self.building_types,
-            tech_progress: self.tech_progress,
-            unit_templates: self.unit_templates,
-        }
-    }
-}
-
 pub struct CityArgs<'a> {
-    pub map: &'a GameMap,
+    pub map: &'a mut GameMap,
     pub building_types: &'a BuildingTypes,
     pub tech_progress: &'a TechProgress,
     pub unit_templates: &'a UnitTemplates,
@@ -125,12 +119,12 @@ pub struct City {
 impl City {
     const TERRITORY_EXPAND_TURNS: isize = 6;
 
-    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, args: CityArgsMut) -> Self {
+    pub fn new(id: CityId, owner: CivilizationId, position: TilePosition, name: String, args: CityArgs) -> Self {
         let mut territory = BTreeMap::new();
         for (pos, _) in position.neighbors_at_distance(args.map.width(), args.map.height(), 1, true) {
             let mut tile = args.map.tile_mut(pos);
-            if tile.territory_of.is_none() {
-                tile.territory_of = Some(id);
+            if tile.territory.is_none() {
+                tile.territory = Some(Territory { city_id: id, city_effect_yields: Yields::default() });
                 territory.insert(pos, None);
             }
         }
@@ -156,7 +150,7 @@ impl City {
             effects: vec![],
             producible_units: vec![],
         };
-        city.update(args.as_city_args());
+        city.update(args);
         city
     }
 
@@ -215,7 +209,7 @@ impl City {
             let mut tiles_at_distance: Vec<_> = self.position.neighbors_at_distance(map.width(), map.height(), distance, false)
                 .keys()
                 .map(|pos| *pos)
-                .filter(|pos| map.tile(*pos).territory_of.is_none())
+                .filter(|pos| map.tile(*pos).territory.is_none())
                 .collect();
 
             tiles_at_distance.sort_by(|a, b| map.cmp_tile_yields_decreasing(*a, *b));
@@ -231,10 +225,10 @@ impl City {
         self.turns_until_territory_growth
     }
 
-    pub fn grow_territory(&mut self, position: TilePosition, args: CityArgsMut) {
+    pub fn grow_territory(&mut self, position: TilePosition, args: CityArgs) {
         self.territory.insert(position, None);
-        args.map.tile_mut(position).territory_of = Some(self.id);
-        self.update(args.as_city_args());
+        args.map.tile_mut(position).territory = Some(Territory { city_id: self.id, city_effect_yields: Yields::default() });
+        self.update(args);
         self.turns_until_territory_growth = Self::TERRITORY_EXPAND_TURNS;
     }
 
@@ -252,12 +246,12 @@ impl City {
         &self.territory
     }
 
-    pub fn territory_tiles(&self) -> Vec<TilePosition> {
-        self.territory.iter().map(|(tile, _)| *tile).collect()
+    pub fn territory_tiles(&self) -> impl Iterator<Item = &TilePosition> {
+        self.territory.keys()
     }
 
     fn update_borders_from_territory(&mut self) {
-        self.borders = TilePosition::borders(&self.territory_tiles());
+        self.borders = TilePosition::borders(&self.territory_tiles().map(|p| *p).collect::<Vec<_>>());
     }
 
     pub fn population(&self) -> i16 {
@@ -355,9 +349,16 @@ impl City {
         self.effects.sort_by_key(|effect| effect.priority());
     }
 
-    fn apply_effects(&mut self) {
+    fn apply_effects(&mut self, map: &mut GameMap) {
+        // Reset all the city effect yields for our territory tiles because the yields will be recalculated.
+        for position in self.territory.keys() {
+            if let Some(territory) = &mut map.tile_mut(*position).territory {
+                territory.city_effect_yields = Yields::default();
+            }
+        }
+
         for effect in self.effects.clone() {
-            effect.apply(self);
+            effect.apply(self, map);
         }
     }
 
@@ -368,7 +369,7 @@ impl City {
         self.update_producible_buildings(args.building_types, args.tech_progress);
         self.update_producible_units(args.tech_progress);
         self.update_effects();
-        self.apply_effects();
+        self.apply_effects(args.map);
 
         let req_food = 15.0 + 8.0 * (self.population as f32 - 1.0) + (self.population as f32 - 1.0).powf(1.5);
         self.required_food_for_population_increase = req_food.into();

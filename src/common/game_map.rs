@@ -27,7 +27,7 @@ impl GameMap {
                     units: BTreeMap::new(),
                     rivers: BTreeSet::new(),
                     city: None,
-                    territory_of: None,
+                    territory: None,
                     resource: None,
                     vegetation: None,
                     harvested: false,

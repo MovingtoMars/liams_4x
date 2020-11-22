@@ -222,7 +222,7 @@ impl Unit {
 
     pub fn can_harvest(&self, cities: &BTreeMap<CityId, City>, map: &GameMap) -> bool {
         let tile = map.tile(self.position);
-        let city = if let Some(city_id) = tile.territory_of {
+        let city = if let Some(Territory { city_id, .. }) = tile.territory {
             cities.get(&city_id).unwrap()
         } else {
             return false;

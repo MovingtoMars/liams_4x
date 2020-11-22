@@ -408,7 +408,7 @@ impl InGameState {
                 rc.ui.spacing();
                 rc.ui.spacing();
 
-                rc.ui.text(format!("Science: {}", self.world.civilization_science_yield(you_civ_id)));
+                rc.ui.text(format!("{}", self.world.civilization_science_yield(you_civ_id)));
 
                 rc.ui.spacing();
                 rc.ui.separator();

@@ -51,7 +51,7 @@ impl Tech {
             ret.push("".into());
         }
 
-        if self.buildings.len() > 0 {
+        if self.units.len() > 0 {
             ret.push("Units:".into());
             for unit_template_id in &self.units {
                 let unit_template = unit_templates.get(*unit_template_id);
@@ -223,7 +223,7 @@ impl TechTree {
     pub fn generate(buildings: &BuildingTypes, units: &UnitTemplates) -> Self {
         let mut tree = Self::new();
 
-        let root_id = tree.add(Tech {
+        let root = tree.add(Tech {
             name: "Agriculture".into(),
             dependencies: vec![],
             position: (0.5, 0.0),
@@ -237,18 +237,20 @@ impl TechTree {
                 units.get_by_name("Worker").id,
             ],
         });
-        tree.initial_techs.insert(root_id);
-        let a_id = tree.add(Tech {
-            name: "A".into(),
-            dependencies: vec![root_id],
+        tree.initial_techs.insert(root);
+        let animal_husbandry = tree.add(Tech {
+            name: "Animal Husbandry".into(),
+            dependencies: vec![root],
             position: (0.4, 0.1),
             cost: 10.0.into(),
-            buildings: vec![],
+            buildings: vec![
+                buildings.get_by_name("Stable").clone(),
+            ],
             units: vec![],
         });
         let b_id = tree.add(Tech {
             name: "B".into(),
-            dependencies: vec![a_id],
+            dependencies: vec![animal_husbandry],
             position: (0.4, 0.2),
             cost: 10.0.into(),
             buildings: vec![],
@@ -256,7 +258,7 @@ impl TechTree {
         });
         let c_id = tree.add(Tech {
             name: "C".into(),
-            dependencies: vec![root_id, b_id],
+            dependencies: vec![root, b_id],
             position: (0.6, 0.3),
             cost: 10.0.into(),
             buildings: vec![],

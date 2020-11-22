@@ -243,7 +243,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
                 let mut hitboxes = self.hitboxes.clone();
                 if let Some(SelectedObject::City(city_id, _)) = self.selected {
                     let city = self.world.city(city_id).unwrap();
-                    let tiles: Vec<_> = city.territory_tiles().into_iter().filter(|pos| *pos != city.position()).collect();
+                    let tiles: Vec<_> = city.territory_tiles().map(|pos| *pos).filter(|pos| *pos != city.position()).collect();
                     for pos in tiles {
                         hitboxes.insert(HitboxKey::Citizen(pos), Hitbox::citizen(pos));
                     }

@@ -66,6 +66,17 @@ impl BuildingTypes {
                     CityEffect::MulYield(YieldMultiplier { multiplier: 1.2.into(), yield_type: YieldType::Food }),
                 ],
             },
+            BuildingType {
+                id: s.generator.next(),
+                name: "Stable".into(),
+                production_cost: 25.0.into(),
+                effects: vec![
+                    CityEffect::AddTileYield {
+                        yield_: Yield { value: 1.0.into(), yield_type: YieldType::Production },
+                        matcher: TileMatcher::HasResource(ResourceType::Horses),
+                    },
+                ],
+            }
         ];
 
         for x in building_types.into_iter() {

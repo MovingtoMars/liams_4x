@@ -203,6 +203,15 @@ impl Yields {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn get(self, yield_type: YieldType) -> YieldValue {
+        match yield_type {
+            YieldType::Food => self.food,
+            YieldType::Production => self.production,
+            YieldType::Science => self.science,
+        }
+    }
+
     pub fn with_food(mut self, food: f32) -> Self {
         self.food = food.into();
         self
