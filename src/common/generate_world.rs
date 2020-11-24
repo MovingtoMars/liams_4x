@@ -1,4 +1,12 @@
 use crate::common::*;
+use voronoi::*;
+use ncollide2d::shape::{ConvexPolygon,Shape};
+use ncollide2d::math::{Isometry, Translation, Vector};
+use ncollide2d::query::PointQuery;
+
+use std::collections::HashMap;
+
+use std::convert::TryInto;
 
 fn choose_with_weights<T: Copy>(inputs: &[(T, usize)]) -> T {
     assert!(inputs.len() > 0);
@@ -23,6 +31,11 @@ fn map_size(num_players: usize) -> (MapUnit, MapUnit) {
     let height = num_tiles_wanted as f32 / width;
 
     (width as MapUnit, height as MapUnit)
+}
+
+
+fn contains_point(poly:Vec<Point>,p:Point) {
+
 }
 
 impl GameWorld {
@@ -54,6 +67,46 @@ impl GameWorld {
         let num_tiles = width * height;
         let mut world = Self::new(width, height, init_players);
 
+        // biome generation
+        let BIOME_AMT = 3;
+        let mut vor_pts = Vec::new();//vec![Point::new(0.0, 1.0), Point::new(2.0, 3.0), Point::new(10.0, 12.0)];
+        for i in 0..BIOME_AMT {
+            vor_pts.push(voronoi::Point::new((rand::random::<f32>()*(width as f32)).into(),(rand::random::<f32>()*(height as f32)).into()));
+        }
+        let vor_diagram = voronoi(vor_pts, 800.0);
+        let vor_polys = make_polygons(&vor_diagram);
+        let mut polys = Vec::new();
+
+        for i in vor_polys {
+            let mut points = Vec::new();
+            for j in i {
+                points.push(ncollide2d::math::Point::new(j.x.0,j.y.0));
+            }
+            //let a = points.try_into().unwrap();
+            polys.push(ConvexPolygon::try_from_points(&points).unwrap());
+        }
+
+        println!("ok");
+
+        let mut biomes = HashMap::new();
+
+        for x in 0..world.map.width() {
+            for y in 0..world.map.height() {
+                let p = ncollide2d::math::Point::new(x as f64,y as f64);
+                let m = Isometry::new(Vector::new(0.0,0.0),0.0);
+                let mut i = 0;
+                for z in &polys {
+                    if z.contains_point(&m,&p) {
+                        biomes.insert((x,y),i);
+                        break;
+                    }
+                    i+=1;
+                }
+            }
+        }
+
+        println!("{:?}",biomes);
+
         for x in 0..world.map.width() {
             for y in 0..world.map.height() {
                 let tile_type = match (x, y) {
@@ -66,8 +119,12 @@ impl GameWorld {
                     (4, 4) |
                     (7, 6) => TileType::Plains,
                     _ => {
-                        if rand::random::<f32>() > 0.85 {
-                            TileType::Mountain
+                        if let Some(m) = biomes.get(&(x,y)) {//rand::random::<f32>() > 0.85 {
+                            match (*m) {
+                                0 => TileType::Mountain,
+                                1 => TileType::Plains,
+                                2 => TileType::Desert,
+                            }
                         } else {
                             TileType::Plains
                         }
