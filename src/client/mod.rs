@@ -9,13 +9,15 @@ mod main_menu_state;
 mod lobby_state;
 mod input_server_addr_state;
 mod crash_state;
+mod scene;
 
 use ggez::conf;
 use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};
 use ggez::graphics;
 use ggez::{Context, GameResult};
+use ggez::error::GameError;
 
-use ggez_goodies::scene::SceneStack;
+use crate::client::scene::SceneStack;
 
 use self::imgui_wrapper::ImGuiWrapper;
 use self::main_menu_state::MainMenuState;
@@ -58,7 +60,7 @@ impl SceneStackHandler {
 
 }
 
-impl EventHandler for SceneStackHandler {
+impl EventHandler<GameError> for SceneStackHandler {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         self.scene_stack.update(ctx);
         Ok(())
@@ -149,12 +151,12 @@ pub fn run_client() {
                 .min_dimensions(800.0, 600.0)
         )
         .add_resource_path(resource_dir);
-    let (ref mut ctx, event_loop) = &mut cb.build().unwrap();
+    let (mut ctx, event_loop) = cb.build().unwrap();
 
-    let hidpi_factor = event_loop.get_primary_monitor().get_hidpi_factor() as f32;
+    let hidpi_factor = 1.0; // event_loop.primary_monitor().unwrap().scale_factor() as f32;
     println!("main hidpi_factor = {}", hidpi_factor);
 
-    let state = &mut SceneStackHandler::new(ctx, hidpi_factor);
+    let state = SceneStackHandler::new(&mut ctx, hidpi_factor);
 
-    event::run(ctx, event_loop, state).unwrap();
+    event::run(ctx, event_loop, state);
 }

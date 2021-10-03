@@ -3,8 +3,8 @@ use std::net::{TcpStream, SocketAddr};
 use ggez::graphics;
 use ggez::graphics::Rect;
 use ggez::event::KeyCode;
-use ggez_goodies::scene::SceneSwitch;
 use imgui::ImString;
+use crate::client::scene::{Scene, SceneSwitch};
 
 use super::InputEvent;
 use super::SharedData;
@@ -35,7 +35,7 @@ impl InputServerAddrState {
     }
 }
 
-impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InputServerAddrState {
+impl Scene<SharedData, InputEvent> for InputServerAddrState {
     fn update(&mut self, _shared_data: &mut SharedData, _ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
         if self.joining {
             if let Ok(parsed_addr) = self.addr.to_str().parse::<SocketAddr>() {
@@ -61,7 +61,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InputServerAddrState
     }
 
     fn draw(&mut self, shared_data: &mut SharedData, ctx: &mut ggez::Context) -> ggez::GameResult<()> {
-        graphics::clear(ctx, graphics::BLACK);
+        graphics::clear(ctx, graphics::Color::BLACK);
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 

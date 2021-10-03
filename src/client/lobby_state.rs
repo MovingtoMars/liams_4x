@@ -5,7 +5,7 @@ use std::net::TcpStream;
 use ggez::graphics;
 use ggez::graphics::Rect;
 use ggez::event::KeyCode;
-use ggez_goodies::scene::SceneSwitch;
+use crate::client::scene::{Scene, SceneSwitch};
 
 use super::InputEvent;
 use super::SharedData;
@@ -57,7 +57,7 @@ impl LobbyState {
     }
 }
 
-impl ggez_goodies::scene::Scene<SharedData, InputEvent> for LobbyState {
+impl Scene<SharedData, InputEvent> for LobbyState {
     fn update(&mut self, _shared_data: &mut SharedData, ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
         if self.quitting_from_lobby {
             self.connection.as_mut().unwrap().send_message(MessageToServer::Quit);
@@ -92,7 +92,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for LobbyState {
     }
 
     fn draw(&mut self, shared_data: &mut SharedData, ctx: &mut ggez::Context) -> ggez::GameResult<()> {
-        graphics::clear(ctx, graphics::BLACK);
+        graphics::clear(ctx, graphics::Color::BLACK);
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 

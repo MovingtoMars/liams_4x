@@ -11,7 +11,7 @@ use ggez::graphics::Image;
 use imgui::ImString;
 use ncollide2d::math::Translation;
 
-use ggez_goodies::scene::SceneSwitch;
+use crate::client::scene::{Scene, SceneSwitch};
 
 use crate::common::{
     Connection,
@@ -159,7 +159,7 @@ impl InGameState {
     }
 }
 
-impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
+impl Scene<SharedData, InputEvent> for InGameState {
     fn update(&mut self, _shared_data: &mut SharedData, _ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
         if let Some(message) = self.crash.take() {
             return SceneSwitch::Replace(Box::new(CrashState::new(message)));
@@ -187,7 +187,7 @@ impl ggez_goodies::scene::Scene<SharedData, InputEvent> for InGameState {
     fn draw(&mut self, shared_data: &mut SharedData, ctx: &mut ggez::Context) -> ggez::GameResult<()> {
         self.drawable_window_size = graphics::drawable_size(ctx);
 
-        graphics::clear(ctx, graphics::BLACK);
+        graphics::clear(ctx, graphics::Color::BLACK);
 
         // Render game stuff
         {

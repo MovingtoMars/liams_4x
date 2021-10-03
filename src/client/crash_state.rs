@@ -1,7 +1,8 @@
 use ggez::graphics;
 use ggez::graphics::Rect;
 use ggez::event::KeyCode;
-use ggez_goodies::scene::SceneSwitch;
+
+use crate::client::scene::{Scene, SceneSwitch};
 
 use super::InputEvent;
 use super::SharedData;
@@ -19,17 +20,17 @@ impl CrashState {
     }
 
     fn exit(&self) {
-        panic!(self.message.clone());
+        panic!("{}", self.message.clone());
     }
 }
 
-impl ggez_goodies::scene::Scene<SharedData, InputEvent> for CrashState {
+impl Scene<SharedData, InputEvent> for CrashState {
     fn update(&mut self, _shared_data: &mut SharedData, _ctx: &mut ggez::Context) -> SceneSwitch<SharedData, InputEvent> {
         SceneSwitch::None
     }
 
     fn draw(&mut self, shared_data: &mut SharedData, ctx: &mut ggez::Context) -> ggez::GameResult<()> {
-        graphics::clear(ctx, graphics::BLACK);
+        graphics::clear(ctx, graphics::Color::BLACK);
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
