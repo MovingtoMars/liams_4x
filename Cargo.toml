@@ -15,8 +15,8 @@ winit = "0.25"
 gfx_core = "0.9.2"
 gfx_device_gl = "0.16.2"
 
-imgui = "0.4"
-imgui-gfx-renderer = "0.4"
+imgui = "0.7"
+imgui-gfx-renderer = "0.7"
 
 ncollide2d = "0.21"
 rand = "0.7.3"
