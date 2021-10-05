@@ -63,9 +63,10 @@ pub struct ImGuiWrapper {
 }
 
 impl ImGuiWrapper {
-  pub fn new(ctx: &mut Context) -> Self {
+  pub fn new(ctx: &mut Context, scale_factor: f32) -> Self {
     // Create the imgui object
     let mut imgui = imgui::Context::create();
+    imgui.style_mut().scale_all_sizes(scale_factor);
     let (factory, gfx_device, _, _, _) = graphics::gfx_objects(ctx);
 
     imgui.set_clipboard_backend(Box::new(SystemClickboard));
@@ -122,13 +123,13 @@ impl ImGuiWrapper {
 
     let open_sans_regular_22 = imgui.fonts().add_font(&[FontSource::TtfData {
         data: open_sans_regular_bytes,
-        size_pixels: 22.0,
+        size_pixels: 22.0 * scale_factor,
         config: None,
     }]);
 
     let open_sans_semi_bold_30 = imgui.fonts().add_font(&[FontSource::TtfData {
         data: open_sans_semi_bold_bytes,
-        size_pixels: 30.0,
+        size_pixels: 30.0 * scale_factor,
         config: None,
     }]);
 
@@ -283,7 +284,7 @@ impl ImGuiWrapper {
       false
   }
 
-  pub fn render_start<'a, 'b>(&'a mut self, ctx: &'b mut Context, hidpi_factor: f32) -> ImGuiRenderContext {
+  pub fn render_start<'a, 'b>(&'a mut self, ctx: &'b mut Context, scale_factor: f32) -> ImGuiRenderContext {
     // Update mouse
     self.update_mouse();
 
@@ -295,7 +296,7 @@ impl ImGuiWrapper {
 
     let (draw_width, draw_height) = graphics::drawable_size(ctx);
     self.imgui.io_mut().display_size = [draw_width, draw_height];
-    self.imgui.io_mut().display_framebuffer_scale = [hidpi_factor, hidpi_factor];
+    self.imgui.io_mut().display_framebuffer_scale = [1.0, 1.0];
     self.imgui.io_mut().delta_time = delta_s;
 
     let ui = self.imgui.frame();
@@ -304,6 +305,7 @@ impl ImGuiWrapper {
     ImGuiRenderContext {
         ui,
         renderer: &mut self.renderer,
+        scale_factor,
         default_font_handle,
         fonts: &self.fonts,
     }
@@ -313,6 +315,7 @@ impl ImGuiWrapper {
 pub struct ImGuiRenderContext<'a> {
     pub ui: Ui<'a>,
     pub fonts: &'a ImGuiFonts,
+    pub scale_factor: f32, // TODO should this be somewhere better?
     renderer: &'a mut Renderer<gfx_core::format::Rgba8, gfx_device_gl::Resources>,
     default_font_handle: FontStackToken,
 }

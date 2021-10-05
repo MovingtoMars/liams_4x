@@ -48,7 +48,7 @@ impl SceneStackHandler {
     fn new(ctx: &mut Context, hidpi_factor: f32) -> Self {
         let global_state = SharedData {
             hidpi_factor,
-            imgui_wrapper: ImGuiWrapper::new(ctx),
+            imgui_wrapper: ImGuiWrapper::new(ctx, hidpi_factor),
         };
         let mut scene_stack = SceneStack::new(ctx, global_state);
 
@@ -147,16 +147,20 @@ pub fn run_client() {
         .window_mode(
             conf::WindowMode::default()
                 .resizable(true)
+                // this doesn't matter since it gets resized below once we know the window scale factor
                 .dimensions(1400.0, 800.0)
                 .min_dimensions(800.0, 600.0)
         )
         .add_resource_path(resource_dir);
     let (mut ctx, event_loop) = cb.build().unwrap();
 
-    let hidpi_factor = 1.0; // event_loop.primary_monitor().unwrap().scale_factor() as f32;
-    println!("main hidpi_factor = {}", hidpi_factor);
+    let window = graphics::window(&ctx);
+    let scale_factor = window.scale_factor();
+    window.set_inner_size(winit::dpi::LogicalSize::new(1400.0, 800.0));
 
-    let state = SceneStackHandler::new(&mut ctx, hidpi_factor);
+    println!("main scale_factor = {}", scale_factor);
+
+    let state = SceneStackHandler::new(&mut ctx, scale_factor as f32);
 
     event::run(ctx, event_loop, state);
 }

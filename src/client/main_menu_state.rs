@@ -63,10 +63,10 @@ impl Scene<SharedData, InputEvent> for MainMenuState {
 
         use imgui::*;
 
-        let window_width = 600.0;
-        let window_height = 400.0;
+        let window_width = ui.current_font_size() * 22.0;
+        let window_height = ui.current_font_size() * 16.0;
 
-        let full_button_size: [f32; 2] = [window_width - ui.clone_style().window_padding[0] * 2.0, 40.0];
+        let full_button_size: [f32; 2] = [window_width - ui.clone_style().window_padding[0] * 2.0, ui.current_font_size() * 2.0];
 
         imgui::Window::new(im_str!("Main Menu"))
             .position([(screen_width - window_width) / 2.0, (screen_height - window_height) / 2.0], Condition::Always)

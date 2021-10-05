@@ -226,7 +226,7 @@ impl TechTree {
         let root = tree.add(Tech {
             name: "Agriculture".into(),
             dependencies: vec![],
-            position: (0.5, 0.0),
+            position: (0.5, 0.1),
             cost: 0.0.into(),
             buildings: vec![
                 buildings.get_by_name("Granary").clone(),
@@ -241,7 +241,7 @@ impl TechTree {
         let animal_husbandry = tree.add(Tech {
             name: "Animal Husbandry".into(),
             dependencies: vec![root],
-            position: (0.4, 0.1),
+            position: (0.4, 0.2),
             cost: 10.0.into(),
             buildings: vec![
                 buildings.get_by_name("Stable").clone(),
@@ -249,25 +249,25 @@ impl TechTree {
             units: vec![],
         });
         let b_id = tree.add(Tech {
-            name: "B".into(),
+            name: "Pottery".into(),
             dependencies: vec![animal_husbandry],
-            position: (0.4, 0.2),
+            position: (0.4, 0.3),
             cost: 10.0.into(),
             buildings: vec![],
             units: vec![],
         });
         let c_id = tree.add(Tech {
-            name: "C".into(),
+            name: "Archery".into(),
             dependencies: vec![root, b_id],
-            position: (0.6, 0.3),
+            position: (0.6, 0.4),
             cost: 10.0.into(),
             buildings: vec![],
             units: vec![],
         });
         let d_id = tree.add(Tech {
-            name: "D".into(),
+            name: "Bronze Working".into(),
             dependencies: vec![c_id],
-            position: (0.6, 0.4),
+            position: (0.6, 0.5),
             cost: 10.0.into(),
             buildings: vec![],
             units: vec![],

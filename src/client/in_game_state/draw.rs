@@ -358,7 +358,7 @@ impl InGameState {
                 .always_auto_resize(true)
                 .draw_background(false)
                 .build(&rc.ui, || {
-                    let clicked = rc.ui.button(&ImString::new(format!("{} {}", city.population(), city.name())), [width, 40.0]);
+                    let clicked = rc.ui.button(&ImString::new(format!("{} {}", city.population(), city.name())), [width, rc.ui.current_font_size() * 2.0]);
                     if clicked {
                         *selected = Some(SelectedObject::City(city.id(), ImString::new(city.name())));
                     }
@@ -375,15 +375,15 @@ impl InGameState {
         let fps = ggez::timer::fps(ctx);
         let you_civ_id = self.world.player(self.player_id).unwrap().civilization_id();
 
-        const LEFT_WINDOW_WIDTH: f32 = 250.0;
+        let left_window_width: f32 = rc.ui.current_font_size() * 11.5;
         imgui::Window::new(im_str!("General"))
-            .size([LEFT_WINDOW_WIDTH, screen_height], imgui::Condition::Always)
+            .size([left_window_width, screen_height], imgui::Condition::Always)
             .position([0.0, screen_height - screen_height], imgui::Condition::Always)
             .collapsible(false)
             .movable(false)
             .resizable(false)
             .build(&rc.ui, || {
-                let button_size = [LEFT_WINDOW_WIDTH - window_padding[0] * 2.0, 40.0];
+                let button_size = [left_window_width - window_padding[0] * 2.0, rc.ui.current_font_size() * 2.0];
                 if rc.ui.button(im_str!("Quit"), button_size) {
                     self.quitting = true;
                 }
@@ -488,17 +488,17 @@ impl InGameState {
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
         let window_padding = rc.ui.clone_style().window_padding;
 
-        const SIDEBAR_WIDTH: f32 = 350.0;
-        let sidebar_button_size: [f32; 2] = [SIDEBAR_WIDTH - window_padding[0] * 2.0, 40.0];
+        let sidebar_width: f32 = rc.ui.current_font_size() * 16.0;
+        let sidebar_button_size: [f32; 2] = [sidebar_width - window_padding[0] * 2.0, rc.ui.current_font_size() * 2.0];
         imgui::Window::new(im_str!("Selection"))
-            .size([SIDEBAR_WIDTH, screen_height], imgui::Condition::Always)
-            .position([screen_width - SIDEBAR_WIDTH, 0.0], imgui::Condition::Always)
-            .collapsible(false)
-            .movable(false)
-            .resizable(false)
-            .build(&rc.ui, || {
-                match self.selected.as_mut().unwrap() {
-                    SelectedObject::Tile(pos) => {
+        .size([sidebar_width, screen_height], imgui::Condition::Always)
+        .position([screen_width - sidebar_width, 0.0], imgui::Condition::Always)
+        .collapsible(false)
+        .movable(false)
+        .resizable(false)
+        .build(&rc.ui, || {
+            match self.selected.as_mut().unwrap() {
+                SelectedObject::Tile(pos) => {
                         let tile = self.world.map.tile(*pos);
                         let tile_type = tile.tile_type;
                         rc.ui.text(format!("{} tile at {}", tile_type, pos));
@@ -719,6 +719,11 @@ impl InGameState {
             });
     }
 
+    // TODO move this somewhere nicer
+    fn scale_position(position: (f32, f32), scale: f32) -> (f32, f32) {
+        (position.0 * scale, position.1 * scale)
+    }
+
     pub(super) fn draw_tech_tree_ui(&mut self, ctx: &mut Context, rc: &ImGuiRenderContext) {
         use imgui::*;
 
@@ -741,13 +746,14 @@ impl InGameState {
             .build(&rc.ui, || {
                 for tech_id in self.world.tech_tree().all() {
                     let tech = self.world.tech_tree().get(tech_id);
-                    let position = tech.position();
+                    let position = Self::scale_position(tech.position(), rc.scale_factor);
                     rc.ui.set_cursor_pos(Self::tech_tree_ui_point(position));
                     let tech = self.world.tech_tree().get(tech_id);
 
                     let my_civ_id = self.world.player(self.player_id).unwrap().civilization_id();
                     let tech_progress = self.world.civilization(my_civ_id).unwrap().tech_progress();
 
+                    // TODO clean up this whole mess
                     if tech_progress.has_completed(tech_id) {
                         let color = [0.06, 0.98, 0.18, 0.4];
                         let token = rc.ui.push_style_colors(&[
@@ -756,7 +762,7 @@ impl InGameState {
                             (StyleColor::ButtonActive, color),
                         ]);
 
-                        rc.ui.button(&ImString::new(tech.name()), Self::TECH_TREE_BUTTON_SIZE);
+                        rc.ui.button(&ImString::new(tech.name()), Self::tech_tree_button_size(rc));
 
                         token.pop(&rc.ui);
                     } else if tech_progress.researching() == Some(tech_id) {
@@ -772,15 +778,23 @@ impl InGameState {
                             self.world.tech_tree(),
                             science_yield_value,
                         ).unwrap();
-                        let label = format!("{} ({} turns)", tech.name(), remaining_turn_cost);
-                        rc.ui.button(&ImString::new(label), Self::TECH_TREE_BUTTON_SIZE);
+                        let label = if science_yield_value <= 0.0.into() {
+                            format!("{}\n(infinite turns)", tech.name())
+                        } else {
+                            format!("{}\n({} turns)", tech.name(), remaining_turn_cost)
+                        };
+                        rc.ui.button(&ImString::new(label), Self::tech_tree_button_size(rc));
 
                         token.pop(&rc.ui);
                     } else {
                         let science_yield_value = self.world.civilization_science_yield(my_civ_id).value;
                         let turn_cost = tech.cost().div_to_get_turn_count(science_yield_value);
-                        let label = format!("{} ({} turns)", tech.name(), turn_cost);
-                        let clicked = rc.ui.button(&ImString::new(label), Self::TECH_TREE_BUTTON_SIZE);
+                        let label = if science_yield_value <= 0.0.into() {
+                            format!("{}\n(infinite turns)", tech.name())
+                        } else {
+                            format!("{}\n({} turns)", tech.name(), turn_cost)
+                        };
+                        let clicked = rc.ui.button(&ImString::new(label), Self::tech_tree_button_size(rc));
                         if clicked {
                             let action = GameActionType::SetResearch { tech_id };
                             self.connection.send_message(MessageToServer::Action(action))
@@ -793,7 +807,7 @@ impl InGameState {
 
                     for dependency_id in tech.dependencies() {
                         let dependency = self.world.tech_tree().get(*dependency_id);
-                        self.draw_tech_tree_line(dependency.position(), position, rc);
+                        self.draw_tech_tree_line(Self::scale_position(dependency.position(), rc.scale_factor), position, rc);
                     }
                 }
             });
@@ -805,8 +819,11 @@ impl InGameState {
 
     const TECH_TREE_LINE_COLOR: [f32; 3] = [1.0, 1.0, 1.0];
     const TECH_TREE_SCALE: f32 = 1000.0;
-    const TECH_TREE_BUTTON_SIZE: [f32; 2] = [200.0, 50.0];
     const TECH_TREE_PADDING: [f32; 2] = [50.0, 50.0];
+
+    fn tech_tree_button_size(rc: &ImGuiRenderContext) -> [f32; 2] {
+        [rc.ui.current_font_size() * 8.0, rc.ui.current_font_size() * 3.0]
+    }
 
     fn draw_tech_tree_line(&self, start: (f32, f32), end: (f32, f32), rc: &ImGuiRenderContext) {
         let draw_list = rc.ui.get_window_draw_list();
@@ -815,10 +832,10 @@ impl InGameState {
         let clip_end = Self::scroll_clip_point(add_arr(window_pos, rc.ui.window_content_region_max()), rc);
 
         let mut src = Self::tech_tree_ui_point_draw_list(start, rc);
-        src[0] += Self::TECH_TREE_BUTTON_SIZE[0] / 2.0;
-        src[1] += Self::TECH_TREE_BUTTON_SIZE[1];
+        src[0] += Self::tech_tree_button_size(rc)[0] / 2.0;
+        src[1] += Self::tech_tree_button_size(rc)[1];
         let mut dest = Self::tech_tree_ui_point_draw_list(end, rc);
-        dest[0] += Self::TECH_TREE_BUTTON_SIZE[0] / 2.0;
+        dest[0] += Self::tech_tree_button_size(rc)[0] / 2.0;
 
         draw_list.with_clip_rect(clip_start, clip_end, || {
             draw_list.add_line(
