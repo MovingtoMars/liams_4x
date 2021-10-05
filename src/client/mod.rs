@@ -136,7 +136,7 @@ pub fn run_client() {
         std::path::PathBuf::from("./resources")
     };
 
-    let title = "Liam's Civilization";
+    let title = "Liam's 4X Game";
 
     let cb = ggez::ContextBuilder::new(title, "confused cyborg")
         .window_setup(

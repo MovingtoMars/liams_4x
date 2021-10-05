@@ -11,7 +11,7 @@ use super::InputEvent;
 use super::SharedData;
 use super::imgui_wrapper::ImGuiFonts;
 use super::in_game_state::InGameState;
-use crate::common::{DEFAULT_SERVER, Connection, MessageToClient, MessageToServer};
+use crate::common::{DEFAULT_SERVER, Connection, LobbyInfo, MessageToClient, MessageToServer};
 use crate::server;
 
 pub struct LobbyState {
@@ -20,7 +20,7 @@ pub struct LobbyState {
     hosting: bool,
     connection: Option<Connection<MessageToServer, MessageToClient>>,
     starting_game: bool,
-    players: Vec<String>,
+    lobby_info: Option<LobbyInfo>,
 }
 
 fn start_server() {
@@ -46,13 +46,12 @@ impl LobbyState {
             hosting = true;
         };
 
-
         Self {
             quitting_from_lobby: false,
             starting_game: false,
             hosting,
             connection: Some(connection),
-            players: vec![],
+            lobby_info: None,
         }
     }
 }
@@ -72,9 +71,9 @@ impl Scene<SharedData, InputEvent> for LobbyState {
         if let Some(connection) = &mut self.connection {
             if let Some(message) = connection.receive_message() {
                 match message {
-                    MessageToClient::PlayerListChanged(players) => {
-                        self.players = players;
-                    },
+                    MessageToClient::LobbyInfo(lobby_info) => {
+                        self.lobby_info = Some(lobby_info);
+                    }
                     MessageToClient::InitializeWorld { world, player_id } => {
                         return SceneSwitch::Push(Box::new(InGameState::new(ctx, world, player_id, self.connection.take().unwrap()).unwrap()));
                     }
@@ -96,7 +95,7 @@ impl Scene<SharedData, InputEvent> for LobbyState {
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-        let Self { quitting_from_lobby, hosting, players, starting_game, connection, .. } = self;
+        let Self { quitting_from_lobby, hosting, starting_game, connection, lobby_info, .. } = self;
 
         let func = move |ui: &imgui::Ui, _fonts: &ImGuiFonts| {
             use imgui::*;
@@ -126,8 +125,18 @@ impl Scene<SharedData, InputEvent> for LobbyState {
 
                     ui.text("Players:");
 
-                    for player in players {
-                        ui.text(player);
+                    if let Some(lobby_info) = lobby_info {
+                        for (player_name, player_id) in &lobby_info.players {
+                            let mut text = player_name.to_owned();
+    
+                            if *player_id == lobby_info.host {
+                                text = text + " (host)";
+                            }
+                            if *player_id == lobby_info.you {
+                                text = text + " (you)";
+                            }
+                            ui.text(text);
+                        }
                     }
 
                     ui.spacing();

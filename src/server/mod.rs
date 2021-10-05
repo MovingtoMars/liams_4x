@@ -73,12 +73,26 @@ impl LobbyServer {
         }
     }
 
-    fn player_names(&self) -> Vec<String> {
-        self.clients.iter().map(|client| client.name.clone()).collect()
+    fn player_names(&self) -> Vec<(String, PlayerId)> {
+        self.clients.iter().map(|client| (client.name.clone(), client.player_id)).collect()
+    }
+
+    fn host_player_id(&self) -> PlayerId {
+        self.clients.iter().find(|client| client.is_host).unwrap().player_id
     }
 
     fn broadcast_player_names(&mut self) {
-        self.broadcast(MessageToClient::PlayerListChanged(self.player_names()));
+        let host_player_id = self.host_player_id();
+        let players = self.player_names();
+
+        for client in &mut self.clients {
+            let lobby_info = LobbyInfo{
+                you: client.player_id,
+                host: host_player_id,
+                players: players.clone(),
+            };
+            client.connection.send_message(MessageToClient::LobbyInfo(lobby_info));
+        }
     }
 
     fn start_game(mut self) -> GameServer {

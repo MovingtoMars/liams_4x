@@ -1284,7 +1284,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "liams_civilization"
+name = "liams_4x"
 version = "0.1.0"
 dependencies = [
  "bincode",
