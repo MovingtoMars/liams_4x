@@ -488,7 +488,7 @@ impl InGameState {
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
         let window_padding = rc.ui.clone_style().window_padding;
 
-        let sidebar_width: f32 = rc.ui.current_font_size() * 16.0;
+        let sidebar_width: f32 = rc.ui.current_font_size() * 13.0;
         let sidebar_button_size: [f32; 2] = [sidebar_width - window_padding[0] * 2.0, rc.ui.current_font_size() * 2.0];
         imgui::Window::new(im_str!("Selection"))
         .size([sidebar_width, screen_height], imgui::Condition::Always)

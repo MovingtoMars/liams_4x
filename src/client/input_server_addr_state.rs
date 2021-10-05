@@ -65,8 +65,6 @@ impl Scene<SharedData, InputEvent> for InputServerAddrState {
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-        let Self { joining, quitting, addr, addr_is_invalid, connection_failed, .. } = self;
-
         let func = move |ui: &imgui::Ui, _fonts: &ImGuiFonts| {
             // ui.
             use imgui::*;
@@ -82,29 +80,29 @@ impl Scene<SharedData, InputEvent> for InputServerAddrState {
                 .collapsible(false)
                 .resizable(false)
                 .build(ui, || {
-                    let input_changed = imgui::InputText::new(ui, im_str!("Server Address"), addr)
+                    let input_changed = imgui::InputText::new(ui, im_str!("Server Address"), &mut self.addr)
                         .resize_buffer(true)
                         .build();
 
                     if input_changed {
-                        *addr_is_invalid = false;
-                        *connection_failed = false;
+                        self.addr_is_invalid = false;
+                        self.connection_failed = false;
                     }
 
-                    if *addr_is_invalid {
+                    if self.addr_is_invalid {
                         ui.spacing();
                         ui.text("The address you entered is invalid.");
                         ui.spacing();
                     }
 
-                    if *connection_failed {
+                    if self.connection_failed {
                         ui.spacing();
                         ui.text("Could not connect.");
                         ui.spacing();
                     }
 
-                    *joining = ui.button(im_str!("Join Game"), full_button_size);
-                    *quitting = ui.button(im_str!("Back"), full_button_size);
+                    self.joining = ui.button(im_str!("Join Game"), full_button_size);
+                    self.quitting = ui.button(im_str!("Back"), full_button_size);
                 });
         };
 

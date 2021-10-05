@@ -95,9 +95,7 @@ impl Scene<SharedData, InputEvent> for LobbyState {
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-        let Self { quitting_from_lobby, hosting, starting_game, connection, lobby_info, .. } = self;
-
-        let func = move |ui: &imgui::Ui, _fonts: &ImGuiFonts| {
+        let func = |ui: &imgui::Ui, _fonts: &ImGuiFonts| {
             use imgui::*;
 
             let window_width = ui.current_font_size() * 22.0;
@@ -111,12 +109,12 @@ impl Scene<SharedData, InputEvent> for LobbyState {
                 .collapsible(false)
                 .resizable(false)
                 .build(ui, || {
-                    if *hosting {
+                    if self.hosting {
                         ui.text(format!("Hosting as: {}", DEFAULT_SERVER));
                         ui.spacing();
-                        *starting_game = ui.button(im_str!("Start Game"), full_button_size);
+                        self.starting_game = ui.button(im_str!("Start Game"), full_button_size);
                     } else {
-                        ui.text(format!("Connected to: {}", connection.as_ref().unwrap().peer_addr()));
+                        ui.text(format!("Connected to: {}", self.connection.as_ref().unwrap().peer_addr()));
                     }
 
                     ui.spacing();
@@ -125,7 +123,7 @@ impl Scene<SharedData, InputEvent> for LobbyState {
 
                     ui.text("Players:");
 
-                    if let Some(lobby_info) = lobby_info {
+                    if let Some(lobby_info) = &self.lobby_info {
                         for (player_name, player_id) in &lobby_info.players {
                             let mut text = player_name.to_owned();
     
@@ -142,7 +140,7 @@ impl Scene<SharedData, InputEvent> for LobbyState {
                     ui.spacing();
                     ui.separator();
                     ui.spacing();
-                    *quitting_from_lobby = ui.button(im_str!("Main Menu"), full_button_size);
+                    self.quitting_from_lobby = ui.button(im_str!("Main Menu"), full_button_size);
                 });
         };
 

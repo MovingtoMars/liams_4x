@@ -56,8 +56,6 @@ impl Scene<SharedData, InputEvent> for MainMenuState {
 
         let Rect { w: screen_width, h: screen_height, .. } = graphics::screen_coordinates(ctx);
 
-        let Self { hosting, joining, quitting, player_name, .. } = self;
-
         let render_context = shared_data.imgui_wrapper.render_start(ctx, shared_data.hidpi_factor);
         let ui = &render_context.ui;
 
@@ -74,15 +72,15 @@ impl Scene<SharedData, InputEvent> for MainMenuState {
             .collapsible(false)
             .resizable(false)
             .build(&ui, || {
-                let mut name_buf = ImString::new(player_name.as_str());
+                let mut name_buf = ImString::new(self.player_name.as_str());
                 imgui::InputText::new(&ui, im_str!("Player Name"), &mut name_buf)
                     .resize_buffer(true)
                     .build();
-                *player_name = name_buf.to_str().into();
+                self.player_name = name_buf.to_str().into();
 
-                *hosting = ui.button(im_str!("Host Game"), full_button_size);
-                *joining = ui.button(im_str!("Join Game"), full_button_size);
-                *quitting = ui.button(im_str!("Quit"), full_button_size);
+                self.hosting = ui.button(im_str!("Host Game"), full_button_size);
+                self.joining = ui.button(im_str!("Join Game"), full_button_size);
+                self.quitting = ui.button(im_str!("Quit"), full_button_size);
             });
 
         render_context.render(ctx);
