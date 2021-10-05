@@ -7,10 +7,10 @@ use ggez::graphics::Rect;
 use ggez::event::KeyCode;
 use crate::client::scene::{Scene, SceneSwitch};
 
-use super::InputEvent;
-use super::SharedData;
-use super::imgui_wrapper::ImGuiFonts;
-use super::in_game_state::InGameState;
+use crate::client::InputEvent;
+use crate::client::SharedData;
+use crate::client::imgui_wrapper::ImGuiFonts;
+use crate::client::scenes::in_game::InGameState;
 use crate::common::{DEFAULT_SERVER, Connection, LobbyInfo, MessageToClient, MessageToServer};
 use crate::server;
 

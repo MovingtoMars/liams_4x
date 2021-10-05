@@ -4,13 +4,8 @@ mod constants;
 mod drag;
 mod hitbox;
 mod selected_object;
-mod in_game_state;
-mod main_menu_state;
-mod lobby_state;
-mod input_server_addr_state;
-mod crash_state;
 mod scene;
-
+mod scenes;
 use ggez::conf;
 use ggez::event::{self, EventHandler, KeyCode, KeyMods, MouseButton};
 use ggez::graphics;
@@ -20,7 +15,7 @@ use ggez::error::GameError;
 use crate::client::scene::SceneStack;
 
 use self::imgui_wrapper::ImGuiWrapper;
-use self::main_menu_state::MainMenuState;
+use self::scenes::main_menu::MainMenuState;
 
 pub struct SharedData {
     // TODO this needs to be updated as dpi changes

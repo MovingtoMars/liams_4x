@@ -25,11 +25,11 @@ use crate::common::{
     ProducingItemId,
 };
 
-use super::InGameState;
-use super::super::constants::*;
-use super::super::imgui_wrapper::ImGuiRenderContext;
-use super::super::selected_object::SelectedObject;
-use super::super::utils::get_tile_window_pos;
+use crate::client::scenes::in_game::InGameState;
+use crate::client::constants::*;
+use crate::client::imgui_wrapper::ImGuiRenderContext;
+use crate::client::selected_object::SelectedObject;
+use crate::client::utils::get_tile_window_pos;
 
 const CENTER_OFFSET: mint::Point2<f32> = mint::Point2 { x: 0.5, y: 0.5 };
 

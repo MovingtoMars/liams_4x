@@ -3,10 +3,10 @@ use ggez::graphics::Rect;
 use ggez::event::KeyCode;
 use crate::client::scene::{Scene, SceneSwitch};
 
-use super::InputEvent;
-use super::SharedData;
-use super::lobby_state::LobbyState;
-use super::input_server_addr_state::InputServerAddrState;
+use crate::client::InputEvent;
+use crate::client::SharedData;
+use super::lobby::LobbyState;
+use super::input_server_addr::InputServerAddrState;
 
 pub struct MainMenuState {
     // TODO merge these into 'what to do' enum?

@@ -1,4 +1,4 @@
-# Liam's Civilization
+# Liam's 4x Game
 
 ## Building
 

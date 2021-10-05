@@ -4,9 +4,8 @@ use ggez::event::KeyCode;
 
 use crate::client::scene::{Scene, SceneSwitch};
 
-use super::InputEvent;
-use super::SharedData;
-use super::imgui_wrapper::ImGuiFonts;
+use crate::client::{InputEvent, SharedData};
+use crate::client::imgui_wrapper::ImGuiFonts;
 
 pub struct CrashState {
     message: String,

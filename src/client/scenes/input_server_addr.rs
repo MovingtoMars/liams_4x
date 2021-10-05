@@ -6,10 +6,9 @@ use ggez::event::KeyCode;
 use imgui::ImString;
 use crate::client::scene::{Scene, SceneSwitch};
 
-use super::InputEvent;
-use super::SharedData;
-use super::imgui_wrapper::ImGuiFonts;
-use super::lobby_state::LobbyState;
+use crate::client::{InputEvent, SharedData};
+use crate::client::imgui_wrapper::ImGuiFonts;
+use crate::client::scenes::lobby::LobbyState;
 
 use crate::common::DEFAULT_SERVER;
 

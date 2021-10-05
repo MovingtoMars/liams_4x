@@ -24,14 +24,14 @@ use crate::common::{
     Citizen,
 };
 
-use super::InputEvent;
-use super::SharedData;
-use super::constants::*;
-use super::crash_state::CrashState;
-use super::drag::Drag;
-use super::hitbox::{Hitbox, HitboxKey, get_hovered_object};
-use super::selected_object::SelectedObject;
-use super::utils::get_tile_window_pos;
+use crate::client::InputEvent;
+use crate::client::SharedData;
+use crate::client::constants::*;
+use super::crash::CrashState;
+use crate::client::drag::Drag;
+use crate::client::hitbox::{Hitbox, HitboxKey, get_hovered_object};
+use crate::client::selected_object::SelectedObject;
+use crate::client::utils::get_tile_window_pos;
 
 const ZOOM_MIN: f32 = 0.5;
 const ZOOM_MAX: f32 = 2.0;
