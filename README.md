@@ -1,5 +1,9 @@
 # Liam's 4x Game
 
+## Demo
+
+[Demo video](https://streamable.com/0bmjhb)
+
 ## Building
 
 The two big dependencies are ggez and imgui.
